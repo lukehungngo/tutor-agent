@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+langchain
+openai
+faiss-cpu
+arxiv
+googlesearch-python
+python-dotenv
+langchain_openai
+wikipedia
+anyio
+pytest-asyncio
+pytest-tornasync
+pytest-trio
+pytest-twisted
