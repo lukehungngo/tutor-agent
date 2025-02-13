@@ -8,14 +8,17 @@ router = APIRouter()
 state_manager = StateManager()
 graph = state_manager.get_graph()
 
-@router.get("/api/chat")
-async def chat(message: str):
-    config: Any = {"configurable": {"thread_id": "1"}}
-
-    async def stream_response():
-        initial_state = State(messages=[{"role": "user", "content": message}])
-        async for event in graph.astream(initial_state, config, stream_mode="values"):
-            if "messages" in event and event["messages"]:
-                yield event["messages"][-1].content + "\n"
-
-    return StreamingResponse(stream_response(), media_type="text/event-stream")
+@router.post("/api/chat")
+async def chat(id: str, message: str):
+    config: Any = {"configurable": {"thread_id": id}}
+    events = list(graph.stream(
+        {"messages": [{"role": "user", "content": message}]},
+        config,
+        stream_mode="values",
+    ))
+    # Get the last message from the final event
+    # Log all messages from events
+    for event in events:
+        event["messages"][-1].pretty_print()
+    final_message = events[-1]["messages"][-1].content
+    return {"response": final_message}
