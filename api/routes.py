@@ -3,16 +3,22 @@ from fastapi.responses import StreamingResponse
 from services.state_manager import StateManager
 from models.state import State
 from typing import Any
+from pydantic import BaseModel
 
 router = APIRouter()
 state_manager = StateManager()
 graph = state_manager.get_graph()
 
+class ChatRequest(BaseModel):
+    id: str
+    message: str
+
 @router.post("/api/chat")
-async def chat(id: str, message: str):
-    config: Any = {"configurable": {"thread_id": id}}
+async def chat(request: ChatRequest):
+    print(request)
+    config: Any = {"configurable": {"thread_id": request.id}}
     events = list(graph.stream(
-        {"messages": [{"role": "user", "content": message}]},
+        {"messages": [{"role": "user", "content": request.message}]},
         config,
         stream_mode="values",
     ))
