@@ -40,7 +40,7 @@ async def construct_subtopics(task: str, data: str, max_subtopics: int = 5, subt
         list: A structured list of generated subtopics.
     """
     try:
-        print(f"\n🤖 Calling {settings.open_api_model} model...\n")
+        print(f"\n🤖 Calling {SUPPORTED_MODELS[0]} model...\n")
 
         output = chain.invoke({
             "task": task,

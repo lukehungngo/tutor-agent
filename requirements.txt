@@ -12,4 +12,7 @@ anyio
 pytest-asyncio
 pytest-tornasync
 pytest-trio
-pytest-twisted
+langgraph
+IPython
+graphviz
+langchain-community

@@ -1,10 +1,16 @@
+"""
+Command to test the planner's subtopic generation.
+"""
+import asyncio
 from services.planner import construct_subtopics
-from models.topic import Subtopics
+
+def main(*args):
+    asyncio.run(test_generate_subqueries())
 
 async def test_generate_subqueries():
     # Test input
-    task = "I am a junior software engineer and I want to learn about the latest trends in software development."
-    data = "Focus on backend development."
+    task = "I am a junior software engineer and I want to learn about backend software development."
+    data = ""
     # Call the function
     result = await construct_subtopics(task, data)
     

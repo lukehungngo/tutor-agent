@@ -1,0 +1,71 @@
+[
+    {
+        "title": "Understanding APIs",
+        "description": "Gain a foundational understanding of how APIs work, including REST and GraphQL.",
+        "category": "Web Technologies",
+        "relevance_score": 5.0,
+        "sources": [
+            "https://restfulapi.net/",
+            "https://graphql.org/learn/"
+        ],
+        "recommended_resources": [
+            "API Design Patterns Book",
+            "Postman for API Testing"
+        ]
+    },
+    {
+        "title": "Database Management",
+        "description": "Learn about relational and non-relational databases, including SQL, NoSQL, and ORM techniques.",
+        "category": "Database Systems",
+        "relevance_score": 5.0,
+        "sources": [
+            "https://www.w3schools.com/sql/",
+            "https://www.mongodb.com/"
+        ],
+        "recommended_resources": [
+            "SQL for Data Science Course",
+            "MongoDB University"
+        ]
+    },
+    {
+        "title": "Server Architecture",
+        "description": "Understand different server architectures, including microservices, monoliths, and serverless.",
+        "category": "Architecture",
+        "relevance_score": 4.0,
+        "sources": [
+            "https://martinfowler.com/articles/microservices.html",
+            "https://aws.amazon.com/serverless/"
+        ],
+        "recommended_resources": [
+            "Designing Data-Intensive Applications Book",
+            "The Twelve-Factor App Methodology"
+        ]
+    },
+    {
+        "title": "Authentication and Authorization",
+        "description": "Study different ways to implement user authentication and authorization in backend systems.",
+        "category": "Security",
+        "relevance_score": 5.0,
+        "sources": [
+            "https://auth0.com/docs/architecture",
+            "https://jwt.io/"
+        ],
+        "recommended_resources": [
+            "OAuth 2.0 Simplified",
+            "Web Security Academy"
+        ]
+    },
+    {
+        "title": "Performance Optimization",
+        "description": "Learn techniques for optimizing backend performance, including caching, load balancing, and database indexing.",
+        "category": "Performance",
+        "relevance_score": 4.0,
+        "sources": [
+            "https://www.oreilly.com/library/view/high-performance-mysql/9781492022957/"
+        ],
+        "recommended_resources": [
+            "High Performance Browser Networking Book",
+            "Web Performance Optimization Course"
+        ]
+    }
+]
