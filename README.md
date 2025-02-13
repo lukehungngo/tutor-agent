@@ -23,5 +23,7 @@ Inspired by [gpt-researcher](https://github.com/assafelovic/gpt-researcher/) cor
 
 This project is built upon [gpt-researcher](https://github.com/assafelovic/gpt-researcher/), which is licensed under the Apache License 2.0. Our project maintains the same license in accordance with the terms. You can find the full license text [here](LICENSE).
 
-### Acknowledgments
+## Acknowledgments
 - [gpt-researcher](https://github.com/assafelovic/gpt-researcher/) - Core architecture inspiration
+- OpenAI for AI capabilities
+- All contributors and supporters
