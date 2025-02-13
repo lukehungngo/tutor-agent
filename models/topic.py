@@ -13,5 +13,5 @@ class Subtopic(BaseModel):
 class Subtopics(BaseModel):
     """Schema for structured subtopics"""
     task: str = Field(...) #  example="How does photosynthesis work?"
-    description: Optional[str] = Field(None) # Overall description before going into detail
     subtopics: List[Subtopic]  # List of subtopics with metadata
+

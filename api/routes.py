@@ -1,15 +1,21 @@
 from fastapi import APIRouter
-from services.planner import generate_subqueries
-from services.researcher import ai_research
-from services.publisher import generate_learning_report
+from fastapi.responses import StreamingResponse
+from services.state_manager import StateManager
+from models.state import State
+from typing import Any
 
 router = APIRouter()
+state_manager = StateManager()
+graph = state_manager.get_graph()
 
-@router.get("/api/learning")
-async def get_learning_path(task: str):
-    """AI-powered learning career generator."""
-    subqueries_result = await generate_subqueries(task)
-    research_results = ai_research(subqueries_result["sub_queries"])
-    report = generate_learning_report(task, research_results)
+@router.get("/api/chat")
+async def chat(message: str):
+    config: Any = {"configurable": {"thread_id": "1"}}
 
-    return {"message": "Learning path generated!", "data": report}
+    async def stream_response():
+        initial_state = State(messages=[{"role": "user", "content": message}])
+        async for event in graph.astream(initial_state, config, stream_mode="values"):
+            if "messages" in event and event["messages"]:
+                yield event["messages"][-1].content + "\n"
+
+    return StreamingResponse(stream_response(), media_type="text/event-stream")

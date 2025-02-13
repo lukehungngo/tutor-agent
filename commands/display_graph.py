@@ -1,5 +1,5 @@
 from IPython.display import Image, display
-from services.chatbot import graph
+from services.state_manager import StateManager
 
 def display_graph(graph):
     try:
@@ -17,6 +17,7 @@ def display_graph(graph):
         print(f"Failed to display graph: {e}")
 
 def main(*args):
+    graph = StateManager().get_graph()
     display_graph(graph)
 
 if __name__ == "__main__":

@@ -1,7 +1,10 @@
-from services.chatbot import graph
+from services.state_manager import StateManager
+from typing import Any
 
 def main():
-    config = {"configurable": {"thread_id": "1"}}
+    state_manager = StateManager()
+    graph = state_manager.get_graph()
+    config : Any = {"configurable": {"thread_id": "1"}}
     def stream_graph_updates(user_input: str):
         events = graph.stream(
             {"messages": [{"role": "user", "content": user_input}]},

@@ -2,6 +2,9 @@
 
 An intelligent educational assistant that provides personalized learning experiences through AI-powered tutoring.
 
+## Progress
+- [] Setup a chatbot with tavily search tool from end to end with in memory cache
+
 ## Features
 
 - Intelligent Learning Path Analysis and Educational Resource Recommendations [🚧]

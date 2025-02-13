@@ -1,4 +1,8 @@
+clean:
+	find . -type d -name "__pycache__" -exec rm -r {} +
+
 run:
+	make clean
 	echo "Starting AI Learning System..."
 	uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
@@ -6,6 +10,7 @@ run:
 # make cmd name=chat
 # make cmd name=display_graph
 cmd:
+	make clean
 	@if [ -z "$(name)" ]; then \
 		echo "Usage: make cmd name=<command_name>"; \
 		echo "Available commands:"; \
