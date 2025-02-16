@@ -16,3 +16,6 @@ langgraph
 IPython
 graphviz
 langchain-community
+grpcio
+grpcio-status
+duckduckgo-search

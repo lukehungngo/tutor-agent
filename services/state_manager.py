@@ -1,10 +1,9 @@
 from langgraph.graph import StateGraph
 from langgraph.checkpoint.memory import MemorySaver
-from services.chatbot import Chatbot
+from services.stateful_chatbot import StatefulChatbot
 from retrievers import tavily_tool
-from models.state import State
+from models.state import ResearchState
 from config import settings
-from langchain.globals import set_debug
 from langgraph.prebuilt import ToolNode, tools_condition
 
 class StateManager:
@@ -12,7 +11,7 @@ class StateManager:
 
     def __init__(self):
         self.memory = MemorySaver()
-        self.graph_builder = StateGraph(State)
+        self.graph_builder = StateGraph(ResearchState)
         self._configure_graph()
 
     def _configure_graph(self):
@@ -21,16 +20,15 @@ class StateManager:
 
         tools = [tavily_tool]
         llm = llm.bind_tools(tools=tools)
-        chatbot = Chatbot(llm)
+        stateful_chatbot = StatefulChatbot(llm)
         tools = ToolNode(tools)
         # Define entry and end points
-        self.graph_builder.add_node("chatbot", chatbot.chat)
+        self.graph_builder.add_node("chatbot", stateful_chatbot.chat)
         self.graph_builder.add_node("tools", tools)
         self.graph_builder.add_conditional_edges(
                 "chatbot",
                 tools_condition,
         )
-
         self.graph_builder.set_entry_point("chatbot")
         self.graph_builder.add_edge("tools", "chatbot")
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from services.state_manager import StateManager
-from models.state import State
+from models.state import State, ResearchState
 from typing import Any
 from pydantic import BaseModel
 
@@ -18,13 +18,13 @@ async def chat(request: ChatRequest):
     print(request)
     config: Any = {"configurable": {"thread_id": request.id}}
     events = list(graph.stream(
-        {"messages": [{"role": "user", "content": request.message}]},
+        {"messages": [{"role": "user", "content": request.message}], "task": None, "answer": None},
         config,
         stream_mode="values",
     ))
     # Get the last message from the final event
     # Log all messages from events
     for event in events:
-        event["messages"][-1].pretty_print()
-    final_message = events[-1]["messages"][-1].content
+        event["task"].pretty_print()
+    final_message = events[-1]["task"].answer
     return {"response": final_message}

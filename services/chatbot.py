@@ -1,7 +1,5 @@
 from typing import Dict, List
-from config.settings import settings
 from models.state import State
-from langchain_core.tools import Tool
 from langchain_core.messages import BaseMessage
 
 class Chatbot:
