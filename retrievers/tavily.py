@@ -2,9 +2,9 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from config.settings import *
 from langchain.tools import Tool
 
-temp = TavilySearchResults(max_results=2)
+tavily_search = TavilySearchResults(max_results=5)
 tavily_tool = Tool(
-    name="tavily_search",
+    name="Tavily Search",
     description="A powerful web search tool that retrieves up-to-date information from across the internet, returning the most relevant results with summaries",
-    func=temp.run
+    func=tavily_search.run
 )

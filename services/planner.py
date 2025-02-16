@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from models.topic import Subtopic
+from models.planner import PlannerSubtopic
 from models.state import State
 import json
 
@@ -15,7 +15,7 @@ class Planner:
             llm: The LLM to use for planning
         """
         self.llm = llm
-        self.parser = PydanticOutputParser(pydantic_object=List[Subtopic])
+        self.parser = PydanticOutputParser(pydantic_object=List[PlannerSubtopic])
 
         self.prompt = PromptTemplate(
             template="""
@@ -36,7 +36,7 @@ class Planner:
         )
         self.chain = self.prompt | self.llm | self.parser
     
-    def plan(self, state: State) -> Dict[str, List[Subtopic]]:
+    def plan(self, state: Dict) -> Dict[str, List[PlannerSubtopic]]:
         """
         Process the state to generate subtopics using the LLM.
 
