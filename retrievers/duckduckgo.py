@@ -1,9 +1,12 @@
 from langchain.tools import Tool
+
 # from langchain_community.tools import DuckDuckGoSearchRun
 # search = DuckDuckGoSearchRun()
 
 from duckduckgo_search import DDGS
+
 ddg = DDGS()
+
 
 def duckduckgo_search(input_text):
     sites = [
@@ -21,7 +24,9 @@ def duckduckgo_search(input_text):
         "site:medium.com",
     ]
     site_query = " OR ".join(sites)
-    search_results = ddg.text(f"({site_query}) {input_text}", region="wt-wt", max_results=5)
+    search_results = ddg.text(
+        f"({site_query}) {input_text}", region="wt-wt", max_results=5
+    )
     results = []
     for result in search_results:
         title = result.get("title", "")
@@ -30,16 +35,13 @@ def duckduckgo_search(input_text):
         if title == "" and url == "" and content == "":
             result = result
         else:
-            result = {
-                "title": title,
-                "url": url, 
-                "content": content
-            }
+            result = {"title": title, "url": url, "content": content}
         results.append(result)
     return results
+
 
 duckduckgo_tool = Tool(
     name="DuckDuckGo Search",
     func=duckduckgo_search,
-    description="useful for finding educational content from top learning platforms and academic institutions"
+    description="useful for finding educational content from top learning platforms and academic institutions",
 )

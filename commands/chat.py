@@ -1,10 +1,12 @@
 from services.state_manager import StateManager
 from typing import Any
 
+
 def main():
     state_manager = StateManager()
     graph = state_manager.get_graph()
-    config : Any = {"configurable": {"thread_id": "1"}}
+    config: Any = {"configurable": {"thread_id": "1"}}
+
     def stream_graph_updates(user_input: str):
         events = graph.stream(
             {"messages": [{"role": "user", "content": user_input}]},
@@ -13,6 +15,7 @@ def main():
         )
         for event in events:
             event["messages"][-1].pretty_print()
+
     while True:
         try:
             user_input = input("User: ")
@@ -27,6 +30,7 @@ def main():
             print("User: " + user_input)
             stream_graph_updates(user_input)
             break
+
 
 if __name__ == "__main__":
     main()

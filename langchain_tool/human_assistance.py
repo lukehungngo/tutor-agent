@@ -4,6 +4,7 @@ from typing import Annotated
 from langgraph.types import interrupt, Command
 from typing import Any
 
+
 @tool
 def human_assistance(query: str) -> str:
     """Request assistance from a human."""

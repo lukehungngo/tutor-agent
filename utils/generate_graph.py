@@ -1,6 +1,7 @@
 from IPython.display import Image, display
 from datetime import datetime
 
+
 def generate_graph(graph):
     try:
         graph_image = graph.get_graph().draw_mermaid_png()  # Get raw PNG data

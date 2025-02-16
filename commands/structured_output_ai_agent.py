@@ -5,6 +5,7 @@ from langgraph.graph import END
 from typing import Annotated
 from langgraph.graph import add_messages
 from langchain.globals import set_debug
+
 # Enable debug mode
 set_debug(True)
 
@@ -12,6 +13,7 @@ set_debug(True)
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
     structured_response: dict
+
 
 def format_response(state: AgentState):
     return {"structured_response": state["messages"][-1].content}
@@ -21,6 +23,7 @@ def chatbot(state: AgentState):
     messages = state.get("messages", [])
     response = settings.llm.invoke(messages)
     return {"messages": [response]}
+
 
 workflow = StateGraph(AgentState)
 workflow.add_node("llm", chatbot)
@@ -37,5 +40,3 @@ event = graph.stream(
 for e in event:
     print("Type of e: ", type(e))
     print(e)
-
-

@@ -12,6 +12,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langchain.globals import set_debug
 from langgraph.types import Command
+
 # Enable debug mode
 # set_debug(True)
 
@@ -50,7 +51,7 @@ agent_executor = AgentExecutor(
     tools=tools,
     verbose=True,
     handle_parsing_errors=True,
-    max_iterations = 10
+    max_iterations=10,
 )
 # Invoke the agent with the required variables
 # result = agent_executor.invoke({
@@ -60,15 +61,18 @@ agent_executor = AgentExecutor(
 # print("Type of React Agent result: ", type(result))
 # print("React Agent result: ", result)
 
+
 # --- Structured Output Agent ---
 class SubTopic(BaseModel):
     title: str
     description: Optional[str] = None
     url: Optional[str] = None
 
+
 class ResponseSchema(BaseModel):
     summary: str
     sub_topics: Optional[list[SubTopic]] = None
+
 
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
@@ -82,6 +86,7 @@ structured_llm = settings.open_api_client.with_structured_output(ResponseSchema)
 # print("Structured Output Agent result: ", response)
 
 # --- Langgraph ---
+
 
 def researcher(state: AgentState):
     """Runs the researcher agent."""
@@ -101,8 +106,10 @@ def reflect_with_structured_output(state: AgentState):
         structured_response = structured_llm.invoke(last_message_content)
         return Command(
             update={
-                "structured_output": structured_response, 
-                "messages": [{"role": "assistant", "content": str(structured_response)}],
+                "structured_output": structured_response,
+                "messages": [
+                    {"role": "assistant", "content": str(structured_response)}
+                ],
             },
         )
     except Exception as e:
@@ -110,13 +117,16 @@ def reflect_with_structured_output(state: AgentState):
         return Command(
             update={
                 "structured_output": None,
-                "messages": [{"role": "assistant", "content": "Failed to structure response."}],
+                "messages": [
+                    {"role": "assistant", "content": "Failed to structure response."}
+                ],
             },
         )
 
 
 def format_response(state: AgentState):
     return {"structured_response": state["messages"][-1].content}
+
 
 workflow = StateGraph(AgentState)
 workflow.add_node("researcher", researcher)
@@ -142,9 +152,11 @@ if last_event:
     # print(last_event)
     print("-------------------------------- Structured Output")
     # Access structured_output
-    structured_output = last_event["reflect_with_structured_output"]["structured_output"]
+    structured_output = last_event["reflect_with_structured_output"][
+        "structured_output"
+    ]
     print(structured_output)
     print("-------------------------------- Messages")
     # Access messages
     messages = last_event["reflect_with_structured_output"]["messages"]
-    print( messages)
+    print(messages)

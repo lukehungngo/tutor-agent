@@ -3,11 +3,13 @@ from pydantic import BaseModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 
-# This work for model without native structured output support      
+
+# This work for model without native structured output support
 class ResponseSchema(BaseModel):
     answer: str
     confidence: float
     sources: list[str]
+
 
 model = settings.llm
 parser = PydanticOutputParser(pydantic_object=ResponseSchema)

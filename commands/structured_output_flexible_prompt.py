@@ -1,11 +1,11 @@
 from config import settings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
-    
+
 # Flexible output will return dict that contain defined response schema, ResponseSchema is supported by langchain
 response_schemas = [
     ResponseSchema(name="summary", description="Concise answer summary"),
-    ResponseSchema(name="details", description="Technical implementation details")
+    ResponseSchema(name="details", description="Technical implementation details"),
 ]
 
 output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
