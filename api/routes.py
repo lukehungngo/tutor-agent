@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from services.state_manager import StateManager
+from multi_agent.state_manager import StateManager
 from models.state import State, ReasoningResult, ResearchResult
 from typing import Any
 from pydantic import BaseModel
@@ -37,7 +37,10 @@ async def chat(request: ChatRequest):
             "timestamp": datetime.now(),
         }
     }
-    if structured_output and (isinstance(structured_output, ReasoningResult) or isinstance(structured_output, ResearchResult)):
+    if structured_output and (
+        isinstance(structured_output, ReasoningResult)
+        or isinstance(structured_output, ResearchResult)
+    ):
         uuid = uuid4()
         response["response"].update(
             {
@@ -46,8 +49,12 @@ async def chat(request: ChatRequest):
             }
         )
         if isinstance(structured_output, ReasoningResult):
-            response["response"]["structured_output"]["reasoning_result"] = structured_output.model_dump()
+            response["response"]["structured_output"][
+                "reasoning_result"
+            ] = structured_output.model_dump()
         elif isinstance(structured_output, ResearchResult):
-            response["response"]["structured_output"]["research_result"] = structured_output.model_dump()
+            response["response"]["structured_output"][
+                "research_result"
+            ] = structured_output.model_dump()
 
     return response

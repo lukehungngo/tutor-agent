@@ -1,9 +1,8 @@
-from pydantic import BaseModel
-from models.state import State, ResearchResult
-from langgraph.types import Command
 from typing import Any
+from models.state import State, ReasoningResult
+from langgraph.types import Command
 
-SUMMARY_PROMPT = """Given the following content, provide a comprehensive analysis and summary:
+REASONING_PROMPT = """Given the following content, provide a clear and insightful analysis:
 
 CONTENT TO ANALYZE:
 {content}
@@ -74,77 +73,57 @@ The system leverages:
 
 [Continue with your analysis in this natural style, avoiding any numbered sections or internal structure headers...]"""
 
-STRUCTURED_ANALYSIS_PROMPT = """Given the following content, provide a detailed structured analysis:
 
-CONTENT TO ANALYZE:
-{content}
-
-Analyze this using the following structure:
-
-1. INFORMATION EXTRACTION
-- Key Titles and Sources
-- URLs and References
-- Core Content Elements
-- Author Information
-
-2. CLASSIFICATION
-- Difficulty Level Assessment
-- Relevance Evaluation
-- Confidence Scoring
-- Source Type Identification
-
-3. ORGANIZATION
-- Content Categorization
-- Priority Ordering
-- Relationship Mapping
-
-4. STRUCTURED OUTPUT
-- Title (preserve original)
-- URL (if present)
-- Content Summary
-- Difficulty Level
-- Author/Source
-- Relevance Score (0-1)
-- Confidence Score (0-1)"""
-
-class StructuredOutputReflector:
-    """Agent that processes research results into structured output format."""
+class DeepReasoner:
+    """Agent that performs structured reasoning and determines research needs."""
 
     def __init__(self, llm: Any, google_gemini_llm: Any):
-        self.structured_output_type = ResearchResult
+        """
+        Initialize the Reasoner with LLMs.
+
+        Args:
+            llm: The language model to use for structured output
+            google_gemini_llm: The Gemini model for enhanced reasoning
+        """
+        self.structured_output_type = ReasoningResult
         self.structured_llm = llm.with_structured_output(self.structured_output_type)
         self.llm = llm
         self.google_gemini_llm = google_gemini_llm
 
     def run(self, state: State) -> Command:
         """
-        Main entry point for the reflector agent.
-        
+        Main entry point for the reasoner agent.
+
         Args:
-            state: Current state containing messages and research results
-            
+            state: Current state containing messages and context
+
         Returns:
-            Command with updated state including structured analysis
+            Command with updated state including reasoning results
         """
         try:
             messages = state.get("messages", [])
-            last_message_content = messages[-1].content if messages else ""
+            last_message = messages[-1].content if messages else ""
 
-            # Generate summary using structured prompt
-            summary = self.google_gemini_llm.invoke(
-                SUMMARY_PROMPT.format(content=last_message_content)
+            # Generate reasoning using Gemini for better analysis
+            reasoning_response = self.llm.invoke(
+                REASONING_PROMPT.format(content=last_message)
             )
-            
+            reasoning_content = reasoning_response.content
+
             # Clean up any remaining structure headers
-            cleaned_summary = self._clean_structure_headers(summary.content if hasattr(summary, 'content') else str(summary))
+            reasoning_content = self._clean_structure_headers(reasoning_content)
 
-            # Generate structured analysis
-            structured_response = self.structured_llm.invoke(
-                STRUCTURED_ANALYSIS_PROMPT.format(content=last_message_content)
+            # Extract confidence and research need
+            confidence_level = self._extract_confidence(reasoning_content)
+            needs_research = self._assess_research_need(reasoning_content)
+
+            # Create structured reasoning result
+            structured_response = ReasoningResult(
+                question=last_message,
+                reasoning_process=reasoning_content,
+                confidence_level=confidence_level,
+                used_context=False,
             )
-
-            # Update the summary field with cleaned content
-            structured_response.summary = cleaned_summary
 
             return Command(
                 update={
@@ -159,14 +138,14 @@ class StructuredOutputReflector:
             )
 
         except Exception as e:
-            print("Error during reflection:", e)
+            print("Error during reasoning:", e)
             return Command(
                 update={
                     "structured_output": None,
                     "messages": [
                         {
                             "role": "assistant",
-                            "content": f"Failed to structure response: {str(e)}",
+                            "content": f"Failed to perform reasoning: {str(e)}",
                         }
                     ],
                 },
@@ -175,24 +154,57 @@ class StructuredOutputReflector:
     def _clean_structure_headers(self, response: str) -> str:
         """Remove any internal structure headers that might have leaked into the output."""
         import re
-        
+
         # List of patterns to remove
         patterns = [
-            r'^Overview and Context\n',
-            r'^Key Concepts and Definitions\n',
-            r'^Technical Analysis\n',
-            r'^Impact and Implications\n',
-            r'^Conclusion\n',
-            r'^\d+\.\s+(Overview|Key Concepts|Technical|Impact|Conclusion)',
-            r'^INTERNAL STRUCTURE:',
-            r'^YOUR RESPONSE SHOULD BE:',
-            r'^FORMATTING GUIDELINES:'
+            r"^Overview and Context\n",
+            r"^Key Concepts and Definitions\n",
+            r"^Technical Analysis\n",
+            r"^Impact and Implications\n",
+            r"^Conclusion\n",
+            r"^\d+\.\s+(Overview|Key Concepts|Technical|Impact|Conclusion)",
+            r"^INTERNAL STRUCTURE:",
+            r"^YOUR RESPONSE SHOULD BE:",
+            r"^FORMATTING GUIDELINES:",
         ]
-        
+
         cleaned = response
         for pattern in patterns:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.MULTILINE)
-        
+            cleaned = re.sub(pattern, "", cleaned, flags=re.MULTILINE)
+
         # Remove multiple consecutive newlines
-        cleaned = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned)
+        cleaned = re.sub(r"\n\s*\n\s*\n", "\n\n", cleaned)
         return cleaned.strip()
+
+    def _extract_confidence(self, response: str) -> int:
+        """Extract confidence level from reasoning response."""
+        try:
+            if "Confidence Level" in response:
+                confidence_line = [
+                    line for line in response.split("\n") if "Confidence Level" in line
+                ][0]
+                confidence = int("".join(filter(str.isdigit, confidence_line)))
+                return min(max(confidence, 1), 10)
+            return 5
+        except:
+            return 5
+
+    def _assess_research_need(self, response: str) -> bool:
+        """Assess if the reasoning indicates need for additional research."""
+        research_indicators = [
+            "would need more information",
+            "requires external data",
+            "cannot be certain without",
+            "would need research",
+            "external research would",
+            "insufficient information",
+            "more data needed",
+            "would need verification",
+        ]
+
+        confidence = self._extract_confidence(response)
+        needs_research = confidence < 7 or any(
+            indicator.lower() in response.lower() for indicator in research_indicators
+        )
+
+        return needs_research

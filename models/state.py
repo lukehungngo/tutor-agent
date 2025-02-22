@@ -42,19 +42,25 @@ class ResearchResult(BaseModel):
             ),
         }
 
+
 class ReasoningResult(BaseModel):
-    question: str = Field(description="The original question or task being reasoned about")
+    question: str = Field(
+        description="The original question or task being reasoned about"
+    )
     reasoning_process: str = Field(description="Detailed reasoning steps and analysis")
     confidence_level: int = Field(description="Confidence level from 1-10")
-    used_context: bool = Field(description="Whether external context was used in reasoning")
+    used_context: bool = Field(
+        description="Whether external context was used in reasoning"
+    )
 
     def model_dump(self, **kwargs) -> dict:
         return {
             "question": self.question,
             "reasoning_process": self.reasoning_process,
             "confidence_level": self.confidence_level,
-            "used_context": self.used_context
+            "used_context": self.used_context,
         }
+
 
 class State(TypedDict, total=False):
     messages: Annotated[List, add_messages]

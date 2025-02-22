@@ -57,3 +57,14 @@ cmd: clean ## Run a specific command with format name=<file_name> with `.py` exc
 format: ## Format code using black
 	$(INFO) "Formatting code..."
 	black .
+
+jupyter: ## Start jupyter notebook
+	$(INFO) "Starting jupyter notebook..."
+	jupyter notebook
+
+install: ## Install dependencies
+	$(INFO) "Installing dependencies..."	
+	uv python install 3.12
+	uv venv --python 3.12
+	uv python pin 3.12
+	uv sync

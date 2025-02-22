@@ -1,9 +1,5 @@
-from typing import Dict, List
+from typing import Dict
 from langchain.agents import AgentExecutor, create_react_agent
-from langchain_core.messages import BaseMessage
-from retrievers import tavily_tool, duckduckgo_tool
-from langchain.prompts import PromptTemplate
-from models.state import ResearchResult, ResearchNode
 
 
 class Researcher:
@@ -115,4 +111,5 @@ class Researcher:
             }
 
         except Exception as e:
+            print(f"Error during research: {str(e)}")
             raise Exception(f"Error during research: {str(e)}")

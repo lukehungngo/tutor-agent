@@ -1,4 +1,4 @@
-from services.state_manager import StateManager
+from multi_agent.state_manager import StateManager
 from typing import Any
 
 

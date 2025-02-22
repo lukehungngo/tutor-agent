@@ -1,3 +1,44 @@
+[project]
+name = "tutor-agent"
+version = "0.1.0"
+description = "An AI tutor agent"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "langchain",
+    "openai",
+    "faiss-cpu",
+    "arxiv",
+    "googlesearch-python",
+    "python-dotenv",
+    "langchain_openai",
+    "wikipedia",
+    "anyio",
+    "pytest-asyncio",
+    "pytest-tornasync",
+    "pytest-trio",
+    "langgraph>=0.2.71",
+    "IPython",
+    "graphviz",
+    "langchain-community",
+    "grpcio",
+    "grpcio-status",
+    "duckduckgo-search",
+    "black",
+    "langchain_google_genai",
+    "langgraph-supervisor",
+    "numexpr==2.10.2",
+    "jupyter",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
 [tool.black]
 exclude = '''
 /(

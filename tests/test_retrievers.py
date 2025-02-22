@@ -1,8 +1,8 @@
-from retrievers.arxiv import arxiv_search
-from retrievers.wikipedia import wikipedia_summary
-from retrievers.google import google_search
-from retrievers.tavily import tavily_search
-from retrievers.duckduckgo import duckduckgo_search
+from tools.retrievers import arxiv_search
+from tools.retrievers import wikipedia_summary
+from tools.retrievers import google_search
+from tools.retrievers import tavily_search
+from tools.retrievers.duckduckgo import duckduckgo_search
 
 
 def test_arxiv():

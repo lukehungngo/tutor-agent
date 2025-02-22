@@ -33,7 +33,7 @@
         "category": "Architecture",
         "relevance_score": 4.0,
         "sources": [
-            "https://martinfowler.com/articles/microservices.html",
+            "https://martinfowler.com/articles/micromulti_agent.html",
             "https://aws.amazon.com/serverless/"
         ],
         "recommended_resources": [
