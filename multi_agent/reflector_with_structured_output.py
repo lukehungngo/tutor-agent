@@ -1,5 +1,4 @@
-from pydantic import BaseModel
-from models.state import State, ResearchResult
+from models.state import State
 from langgraph.types import Command
 from typing import Any
 
@@ -72,48 +71,14 @@ The system leverages:
 - Residual connections
 </details>
 
-[Continue with your analysis in this natural style, avoiding any numbered sections or internal structure headers...]"""
-
-STRUCTURED_ANALYSIS_PROMPT = """Given the following content, provide a detailed structured analysis:
-
-CONTENT TO ANALYZE:
-{content}
-
-Analyze this using the following structure:
-
-1. INFORMATION EXTRACTION
-- Key Titles and Sources
-- URLs and References
-- Core Content Elements
-- Author Information
-
-2. CLASSIFICATION
-- Difficulty Level Assessment
-- Relevance Evaluation
-- Confidence Scoring
-- Source Type Identification
-
-3. ORGANIZATION
-- Content Categorization
-- Priority Ordering
-- Relationship Mapping
-
-4. STRUCTURED OUTPUT
-- Title (preserve original)
-- URL (if present)
-- Content Summary
-- Difficulty Level
-- Author/Source
-- Relevance Score (0-1)
-- Confidence Score (0-1)"""
+[Continue with your analysis in this natural style, avoiding any numbered sections or internal structure headers...]
+"""
 
 
 class StructuredOutputReflector:
     """Agent that processes research results into structured output format."""
 
     def __init__(self, llm: Any, google_gemini_llm: Any):
-        self.structured_output_type = ResearchResult
-        self.structured_llm = llm.with_structured_output(self.structured_output_type)
         self.llm = llm
         self.google_gemini_llm = google_gemini_llm
 
@@ -141,21 +106,13 @@ class StructuredOutputReflector:
                 summary.content if hasattr(summary, "content") else str(summary)
             )
 
-            # Generate structured analysis
-            structured_response = self.structured_llm.invoke(
-                STRUCTURED_ANALYSIS_PROMPT.format(content=last_message_content)
-            )
-
-            # Update the summary field with cleaned content
-            structured_response.summary = cleaned_summary
-
             return Command(
                 update={
-                    "structured_output": structured_response,
+                    "summary": cleaned_summary,
                     "messages": [
                         {
                             "role": "assistant",
-                            "content": str(structured_response.model_dump()),
+                            "content": last_message_content,
                         }
                     ],
                 },

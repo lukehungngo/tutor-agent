@@ -30,6 +30,7 @@ dependencies = [
     "langgraph-supervisor",
     "numexpr==2.10.2",
     "jupyter",
+    "markdown-text-clean",
 ]
 
 [build-system]

@@ -1,6 +1,8 @@
 from typing import Dict
 from langchain.agents import AgentExecutor, create_react_agent
-
+from langgraph.types import Command
+from models.state import ResearchResult
+from langchain import hub
 
 class Researcher:
     def __init__(self, llm, tools):
@@ -12,9 +14,6 @@ class Researcher:
         """
         self.llm = llm
         self.tools = tools
-
-        from langchain import hub
-
         self.prompt = hub.pull("hwchase17/react")
         # prompt = """
         # You are a helpful assistant that can search the web for information and gather as much information as possible.
@@ -50,7 +49,7 @@ class Researcher:
             return_intermediate_steps=True,  # Ensure we get all intermediate steps
         )
 
-    def research(self, state: Dict) -> Dict:
+    def call_model(self, state: Dict) -> Command:
         """
         Process messages in the state using the research agent.
 
@@ -100,16 +99,27 @@ class Researcher:
                     raw_search_results.append(raw_result)
 
             # Create a comprehensive message that includes all data
-            research_message = {
-                "summary": response["output"],
-            }
-            if len(raw_search_results) > 0:
-                research_message.update({"raw_search_results": raw_search_results})
+            research_result = ResearchResult(
+                research_nodes=raw_search_results,
+            )
 
-            return {
-                "messages": [str(research_message)],  # Include all data in messages
-            }
+            return Command(
+                update={
+                    "research_result": research_result,
+                    "messages": [
+                        {
+                            "role": "assistant",
+                            "content": str(response["output"]),
+                        }
+                    ],
+                },
+            )
 
         except Exception as e:
             print(f"Error during research: {str(e)}")
-            raise Exception(f"Error during research: {str(e)}")
+            return Command(
+                update={
+                    "research_result": None,
+                    "messages": [{"role": "assistant", "content": str(e)}],
+                },
+            )

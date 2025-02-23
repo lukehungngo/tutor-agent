@@ -71,7 +71,8 @@ The system leverages:
 - Residual connections
 </details>
 
-[Continue with your analysis in this natural style, avoiding any numbered sections or internal structure headers...]"""
+[Continue with your analysis in this natural style, avoiding any numbered sections or internal structure headers...]
+"""
 
 
 class DeepReasoner:
@@ -90,7 +91,7 @@ class DeepReasoner:
         self.llm = llm
         self.google_gemini_llm = google_gemini_llm
 
-    def run(self, state: State) -> Command:
+    def call_model(self, state: State) -> Command:
         """
         Main entry point for the reasoner agent.
 
@@ -115,23 +116,21 @@ class DeepReasoner:
 
             # Extract confidence and research need
             confidence_level = self._extract_confidence(reasoning_content)
-            needs_research = self._assess_research_need(reasoning_content)
 
             # Create structured reasoning result
-            structured_response = ReasoningResult(
+            reasoning_result = ReasoningResult(
                 question=last_message,
                 reasoning_process=reasoning_content,
                 confidence_level=confidence_level,
-                used_context=False,
             )
 
             return Command(
                 update={
-                    "structured_output": structured_response,
+                    "reasoning_result": reasoning_result,
                     "messages": [
                         {
                             "role": "assistant",
-                            "content": str(structured_response.model_dump()),
+                            "content": str(reasoning_result.model_dump()),
                         }
                     ],
                 },
@@ -141,7 +140,7 @@ class DeepReasoner:
             print("Error during reasoning:", e)
             return Command(
                 update={
-                    "structured_output": None,
+                    "reasoning_result": None,
                     "messages": [
                         {
                             "role": "assistant",

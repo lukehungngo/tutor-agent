@@ -1,21 +1,16 @@
 from langgraph.graph import StateGraph
 from langgraph.checkpoint.memory import MemorySaver
-from multi_agent.researcher import Researcher
-from multi_agent.reasoner.deep_reasoner import DeepReasoner
-from tools.retrievers import (
-    tavily_tool,
-    duckduckgo_tool,
-    google_tool,
-    wikipedia_summary_tool,
-    arxiv_tool,
-)
+from multi_agent.researcher.researcher_graph import ResearcherTeam
+from multi_agent.reasoner.reasoner_graph import ReasonerTeam
+from multi_agent.math.math_graph import MathTeam
 from models.state import State
 from multi_agent.reflector_with_structured_output import StructuredOutputReflector
 from config import settings
 from langgraph.graph import END
-from langgraph.graph import START
-from multi_agent.top_supervisor import top_supervisor
+from multi_agent.top_supervisor import TopSupervisor
+from langchain.globals import set_debug
 
+# set_debug(True)
 
 # set_debug(True)
 class StateManager:
@@ -30,43 +25,44 @@ class StateManager:
     def _configure_graph(self):
         """Configure the graph with nodes and edges."""
         # Initialize components
-        tools = [
-            google_tool,
-            wikipedia_summary_tool,
-            duckduckgo_tool,
-            arxiv_tool,
-            tavily_tool,
-        ]
 
-        router = top_supervisor
-        researcher = Researcher(settings.google_gemini_client, tools)
-        deep_reasoner = DeepReasoner(
-            settings.open_api_client, settings.google_gemini_client
-        )
+        researcher_team = ResearcherTeam(
+            settings.open_api_client
+        ).create_workflow()
+        reasoner_team = ReasonerTeam(
+            settings.open_api_client
+        ).create_workflow()
+        math_team = MathTeam(
+            settings.open_api_client
+        ).create_workflow()
+
+        top_supervisor = TopSupervisor(settings.google_gemini_client, tools=[])
         reflector = StructuredOutputReflector(
             settings.open_api_client, settings.google_gemini_client
         )
 
-        # Add nodes
-        self.graph_builder.add_node("researcher", researcher.research)
-        self.graph_builder.add_node("deep_reasoner", deep_reasoner.run)
+        self.graph_builder.add_node("top_supervisor", top_supervisor.call_model)
+        self.graph_builder.add_node("researcher_team", researcher_team)
+        self.graph_builder.add_node("reasoner_team", reasoner_team)
+        self.graph_builder.add_node("math_team", math_team)
         self.graph_builder.add_node("reflector", reflector.run)
-
         # Add edges to end
-        self.graph_builder.add_edge(
-            "researcher", "reflector"
-        )  # Research path needs structuring
-        self.graph_builder.add_edge("reflector", END)
-        self.graph_builder.add_edge(
-            "deep_reasoner", END
-        )  # Reasoner output is already structured
-
-        # Set entry point
+        self.graph_builder.add_edge("top_supervisor", "reflector")
         self.graph_builder.add_conditional_edges(
-            START,
-            router.route,
-            {"researcher": "researcher", "deep_reasoner": "deep_reasoner"},
+            "top_supervisor",
+            top_supervisor.route,
+            {
+                "researcher_team": "researcher_team",
+                "math_team": "math_team",
+                "reasoner_team": "reasoner_team",
+            },
         )
+        self.graph_builder.add_edge("researcher_team", "top_supervisor")
+        self.graph_builder.add_edge("reasoner_team", "top_supervisor")
+        self.graph_builder.add_edge("math_team", "top_supervisor")
+        self.graph_builder.add_edge("reflector", END)
+        # Set entry point
+        self.graph_builder.set_entry_point("top_supervisor")
 
         # Compile graph
         self.graph = self.graph_builder.compile(checkpointer=self.memory)

@@ -29,12 +29,10 @@ class ResearchNode(BaseModel):
 
 
 class ResearchResult(BaseModel):
-    summary: str
     research_nodes: Optional[List[ResearchNode]]
 
     def model_dump(self, **kwargs) -> dict:
         return {
-            "summary": self.summary,
             "research_nodes": (
                 [node.model_dump() for node in self.research_nodes]
                 if self.research_nodes
@@ -49,19 +47,17 @@ class ReasoningResult(BaseModel):
     )
     reasoning_process: str = Field(description="Detailed reasoning steps and analysis")
     confidence_level: int = Field(description="Confidence level from 1-10")
-    used_context: bool = Field(
-        description="Whether external context was used in reasoning"
-    )
 
     def model_dump(self, **kwargs) -> dict:
         return {
             "question": self.question,
             "reasoning_process": self.reasoning_process,
             "confidence_level": self.confidence_level,
-            "used_context": self.used_context,
         }
 
 
 class State(TypedDict, total=False):
     messages: Annotated[List, add_messages]
-    structured_output: Optional[Union[ResearchResult, ReasoningResult]]
+    summary: str
+    research_result: Optional[ResearchResult]
+    reasoning_result: Optional[ReasoningResult]
