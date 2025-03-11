@@ -87,6 +87,10 @@ class DeepMathAgent:
             formatted_prompt = self.prompt.format(question=last_message)
             # Invoke LLM with the formatted prompt
             response = self.llm.invoke(formatted_prompt)
-            return {"messages": [{"role": "assistant", "content": clean_text(response.content)}]}
+            return {
+                "messages": [
+                    {"role": "assistant", "content": clean_text(response.content)}
+                ]
+            }
         except Exception as e:
             raise Exception(f"Error processing messages: {str(e)}")

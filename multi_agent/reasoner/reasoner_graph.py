@@ -5,6 +5,7 @@ from langgraph.graph.state import CompiledStateGraph
 from models.state import State
 from multi_agent.reasoner.deep_reasoner import DeepReasoner
 
+
 class ReasonerTeam:
     def __init__(self, llm: Any, tools: List[Tool] = []):
         self.llm = llm
@@ -17,4 +18,3 @@ class ReasonerTeam:
         workflow.add_edge("reasoner_agent", END)
         workflow.set_entry_point("reasoner_agent")
         return workflow.compile(name=self.name)
-

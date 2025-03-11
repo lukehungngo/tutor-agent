@@ -7,22 +7,24 @@ from langgraph_supervisor import create_supervisor
 from langgraph.graph.state import CompiledStateGraph
 from typing import Any
 from multi_agent import *
+from multi_agent.state_manager import *
 
 # set_debug(True)
 
-math_team = MathTeam(settings.open_api_client).create_workflow()
-top_supervisor = TopSupervisor(settings.open_api_client).create([math_team])
+state_manager = StateManager()
+graph = state_manager.get_graph()
 
-# Create initial state with the math question
-initial_state = {
-    "messages": [
-        {
-            "role": "user",
-            "content": "1+2 = ?",
-        }
-    ]
-}
+config: Any = {"configurable": {"thread_id": "123"}}
 
-print("Initial state:", initial_state)
-result = top_supervisor.invoke(initial_state)
-print("\nFinal state:", result)
+user_input = """Evaluate this expression: numexpr.evaluate("sin(45 * pi/180) + cos(30 * pi/180)")"""
+user_require_explanation = """Explain how to solve the following expression: numexpr.evaluate("sin(45 * pi/180) + cos(30 * pi/180)")"""
+event = graph.invoke(
+    {"messages": [{"role": "user", "content": user_input}]},
+    config,
+    stream_mode="values",
+)
+print(event)
+
+# print("--------------------------------")
+# event = graph.invoke({"messages": [{"role": "user", "content": user_require_explanation}]})
+# print(event)

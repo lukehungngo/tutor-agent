@@ -1,0 +1,38 @@
+---
+description:
+globs:
+---
+
+# Python LangChain Multi-Agent System
+
+This is a Python project that implements a multi-agent system using LangChain and LangGraph for orchestrating different specialized AI agents.
+
+## Project Structure
+
+### Core Components
+- `multi_agent/`: Main package containing agent implementations
+  - `math/`: Math-focused agents (QuickMathAgent, DeepMathAgent, MathTeam)
+  - `reasoner/`: Reasoning agents (DeepReasoner, ReasonerTeam)
+  - `researcher/`: Research-focused agents
+  - `top_supervisor.py`: Orchestrates different agent teams
+  - `state_manager.py`: Manages state across agent interactions
+
+### Models and Configuration
+- `models/state.py`: Contains state definitions and typed dictionaries
+- `config/settings.py`: Configuration settings for LLM clients
+
+### Commands
+- `commands/`: CLI commands for interacting with the system
+  - `chat_math_team.py`: Interact with math agents
+  - `chat_with_supervisor.py`: Interact with the supervisor agent
+  - `display_graph.py`: Visualize agent workflows
+
+## Key Concepts
+- **Agent Teams**: Specialized groups of agents (MathTeam, ReasonerTeam, ResearcherTeam)
+- **Workflow Graphs**: LangGraph-based workflows for agent orchestration
+- **Structured Output**: Agents produce structured outputs (ReasoningResult, ResearchResult)
+- **Supervisor Pattern**: Top-level supervisor routes queries to appropriate teams
+
+## LLM Integration
+- Supports multiple LLM providers (OpenAI, Google Gemini)
+- Uses LangChain for LLM interaction and tool integration

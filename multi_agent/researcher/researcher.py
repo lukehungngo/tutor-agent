@@ -4,6 +4,7 @@ from langgraph.types import Command
 from models.state import ResearchResult
 from langchain import hub
 
+
 class Researcher:
     def __init__(self, llm, tools):
         """

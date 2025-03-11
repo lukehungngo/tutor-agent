@@ -12,6 +12,7 @@ from tools.retrievers import (
     arxiv_tool,
 )
 
+
 class ResearcherTeam:
     def __init__(self, llm: Any, tools: List[Tool] = []):
         default_tools = [
@@ -32,4 +33,3 @@ class ResearcherTeam:
         workflow.add_edge("researcher_agent", END)
         workflow.set_entry_point("researcher_agent")
         return workflow.compile(name=self.name)
-
