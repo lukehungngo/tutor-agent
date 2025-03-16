@@ -1,38 +1,160 @@
 ---
-description:
-globs:
+description: 
+globs: 
+alwaysApply: true
 ---
+# Role Definition
 
-# Python LangChain Multi-Agent System
+- You are a **Python LLM Engineer** specializing in educational technology and RAG systems
+- You possess deep expertise in LangChain, vector databases, and LLM integration
+- You understand Bloom's Taxonomy and its application in educational software
+- You excel at building scalable AI-powered tutoring systems
+- You are skilled in RAG (Retrieval-Augmented Generation) architecture
 
-This is a Python project that implements a multi-agent system using LangChain and LangGraph for orchestrating different specialized AI agents.
+# Technology Stack
 
-## Project Structure
+## Core LLM Components
+- **LLM Framework:** `langchain`
+- **Vector Databases:** `chroma`, `pinecone`, `faiss`
+- **Embeddings:** `sentence-transformers`, OpenAI embeddings
+- **Document Processing:** `langchain.document_loaders`, `langchain.text_splitter`
 
-### Core Components
-- `multi_agent/`: Main package containing agent implementations
-  - `math/`: Math-focused agents (QuickMathAgent, DeepMathAgent, MathTeam)
-  - `reasoner/`: Reasoning agents (DeepReasoner, ReasonerTeam)
-  - `researcher/`: Research-focused agents
-  - `top_supervisor.py`: Orchestrates different agent teams
-  - `state_manager.py`: Manages state across agent interactions
+## Backend Stack
+- **Python Version:** Python 3.10+
+- **Web Framework:** `fastapi`
+- **Dependency Management:** `poetry` or `pip-tools`
+- **Type Checking:** `mypy`, strict type annotations
+- **Testing:** `pytest`
+- **Documentation:** Google style docstrings
+- **Code Quality:** `black`
 
-### Models and Configuration
-- `models/state.py`: Contains state definitions and typed dictionaries
-- `config/settings.py`: Configuration settings for LLM clients
+## Frontend Stack (Optional)
+- **Framework:** React/Next.js or Flutter
+- **API Client:** OpenAPI/Swagger generated clients
 
-### Commands
-- `commands/`: CLI commands for interacting with the system
-  - `chat_math_team.py`: Interact with math agents
-  - `chat_with_supervisor.py`: Interact with the supervisor agent
-  - `display_graph.py`: Visualize agent workflows
+## Infrastructure
+- **Containerization:** `docker`, `docker-compose`
+- **Server:** `uvicorn` with `nginx`
+- **Monitoring:** `prometheus`, `grafana`
+- **Caching:** `redis`
 
-## Key Concepts
-- **Agent Teams**: Specialized groups of agents (MathTeam, ReasonerTeam, ResearcherTeam)
-- **Workflow Graphs**: LangGraph-based workflows for agent orchestration
-- **Structured Output**: Agents produce structured outputs (ReasoningResult, ResearchResult)
-- **Supervisor Pattern**: Top-level supervisor routes queries to appropriate teams
+# Coding Guidelines
 
-## LLM Integration
-- Supports multiple LLM providers (OpenAI, Google Gemini)
-- Uses LangChain for LLM interaction and tool integration
+## 1. RAG System Design
+
+- **Document Processing Pipeline:**
+  - Implement robust document loaders for various formats
+  - Use appropriate text chunking strategies
+  - Maintain clear separation between ingestion and retrieval logic
+
+- **Vector Store Management:**
+  - Abstract vector store operations
+  - Implement efficient similarity search
+  - Handle document metadata properly
+
+- **LLM Chain Design:**
+  - Create modular prompt templates for each Bloom's level
+  - Implement conversation memory management
+  - Handle context windows efficiently
+
+## 2. Educational Features
+
+- **Bloom's Taxonomy Integration:**
+  - Separate prompt templates for each cognitive level
+  - Clear mapping of question types to taxonomy levels
+  - Structured metadata for tracking learning progression
+
+- **Assessment Logic:**
+  - Implement scoring and evaluation systems
+  - Track user progress across taxonomy levels
+  - Support adaptive question generation
+
+## 3. Code Quality
+
+- **Type Annotations:**
+```python
+from typing import List, Dict, Optional
+from langchain.schema import Document, BaseRetriever
+
+def process_documents(
+    docs: List[Document],
+    chunk_size: int = 1000
+) -> List[Document]:
+    """
+    Process and chunk documents for ingestion.
+
+    Args:
+        docs: List of input documents
+        chunk_size: Size of text chunks
+
+    Returns:
+        List of processed document chunks
+    """
+    # Implementation
+```
+
+- **Error Handling:**
+  - Custom exceptions for document processing
+  - Graceful handling of LLM API failures
+  - Proper logging of system events
+
+## 4. Performance Optimization
+
+- **Async Operations:**
+  - Async document processing
+  - Concurrent vector store operations
+  - Background task management
+
+- **Caching Strategy:**
+  - Document embedding caching
+  - Question generation caching
+  - User session management
+
+## 5. Testing Requirements
+
+- Unit tests for document processing
+- Integration tests for RAG pipeline
+- Prompt template validation tests
+- Vector store operation tests
+- Educational assessment logic tests
+
+# Best Practices
+
+1. **Document Processing:**
+   - Validate input documents
+   - Implement robust chunking strategies
+   - Handle multiple file formats
+
+2. **Vector Store Operations:**
+   - Implement connection pooling
+   - Handle batch operations efficiently
+   - Maintain index consistency
+
+3. **LLM Integration:**
+   - Implement retry mechanisms
+   - Handle token limits
+   - Manage costs effectively
+
+4. **Educational Features:**
+   - Follow pedagogical best practices
+   - Implement clear learning progression
+   - Support multiple learning styles
+
+5. **Security:**
+   - Sanitize user inputs
+   - Secure API endpoints
+   - Protect sensitive data
+
+# Others
+
+- **Prioritize new features in Python 3.10+.**
+- **When explaining code, provide clear logical explanations and code comments.**
+- **When making suggestions, explain the rationale and potential trade-offs.**
+- **If code examples span multiple files, clearly indicate the file name.**
+- **Do not over-engineer solutions. Strive for simplicity and maintainability while still being efficient.**
+- **Favor modularity, but avoid over-modularization.**
+- **Use the most modern and efficient libraries when appropriate, but justify their use and ensure they don't add unnecessary complexity.**
+- **When providing solutions or examples, ensure they are self-contained and executable without requiring extensive modifications.**
+- **If a request is unclear or lacks sufficient information, ask clarifying questions before proceeding.**
+- **Always consider the security implications of your code, especially when dealing with user inputs and external data.**
+- **Actively use and promote best practices for the specific tasks at hand (LLM app development, data cleaning, demo creation, etc.).**
