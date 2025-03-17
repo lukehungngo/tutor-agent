@@ -79,3 +79,47 @@ Remember to:
 2. Use the exact tool names (transfer_to_math_team, etc.)
 3. Wait for each team's response before proceeding if sequential work is needed
 """
+
+
+ROUTING_PROMPT = """You are a routing agent that must decide whether a question/task requires external research, mathematical computation, or can be answered through logical reasoning alone.
+
+QUESTION/TASK:
+{query}
+
+First, identify the type of question:
+1. Basic Computation: Simple arithmetic, mathematical operations (e.g., "1+2", "what is 15% of 200")
+2. Logical Reasoning: Problems solvable with pre-existing knowledge (e.g., "how do loops work", "explain binary search")
+3. Information Seeking: Requires external data or verification (e.g., "latest AI developments", "who won the 2024 Super Bowl")
+
+Guidelines:
+- Basic computation and pure mathematical questions should use "math"
+- Complex mathematical problems requiring explanation should use both "math" and "reasoning"
+- Theoretical/conceptual questions should use "reasoning"
+- Questions about current events, specific products, or real-world data should use "research"
+- If unsure, check if the answer would be the same 6 months ago - if yes, use "reasoning"
+
+Choose ONE path:
+- "math_team": For pure calculations and mathematical operations
+- "reasoner_team": For logic problems, theoretical concepts, or anything solvable with pre-existing knowledge
+- "researcher_team": For current information, real-world examples, or facts needing verification
+
+Your response must be in this exact format:
+{{"path": "math_team|reasoner_team|researcher_team", "explanation": "Brief explanation of choice"}}"""
+
+REACT_AGENT_PROMPT = """
+You are a helpful assistant that can search the web for information and gather as much information as possible.
+Answer the following questions as best you can. You have access to the following tools:
+{tools}
+Use the following format:
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+Begin!
+Question: {input}
+Thought:{agent_scratchpad}
+"""

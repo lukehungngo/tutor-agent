@@ -12,3 +12,7 @@ gen-lang-client-0711819672-fd13e65054c6.json
 .pytest_cache
 notes.md
 venv
+.cursor/
+.idea/
+.venv/
+.vscode/

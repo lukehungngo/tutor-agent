@@ -1,20 +1,103 @@
 # AI Tutor Agent
 
-An intelligent educational assistant that provides personalized learning experiences through AI-powered tutoring.
+An AI-powered tutor agent that generates questions based on Bloom's Taxonomy from your learning materials.
+
+## Features
+
+- Document processing for large files (up to 25MB)
+- Support for various file formats (PDF, TXT, etc.)
+- RAG (Retrieval-Augmented Generation) architecture
+- Question generation based on Bloom's Taxonomy levels:
+  - Remember (recall facts)
+  - Understand (explain concepts)
+  - Apply (use in new situations)
+  - Analyze (draw connections)
+  - Evaluate (justify positions)
+  - Create (produce new work)
+- Comprehensive document coverage
+- Answer evaluation with detailed feedback
+
+## Setup
+
+1. Clone the repository
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+3. Set up your OpenAI API key:
+```bash
+export OPENAI_API_KEY=your_api_key_here
+```
+
+## Usage
+
+1. Start the server:
+```bash
+uvicorn tutor_agent.main:app --reload
+```
+
+2. Create an exam session by uploading a document:
+```bash
+curl -X POST -F "file=@your_document.pdf" -F "summary=Optional summary of the document" -F "num_questions=5" http://localhost:8000/start-exam
+```
+
+3. Get questions for an exam session:
+```bash
+curl -X GET http://localhost:8000/exam/{session_id}
+```
+
+4. Submit and evaluate an answer:
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"session_id": "your_session_id", "question_idx": 0, "answer": "Your answer here"}' \
+  http://localhost:8000/submit-answer
+```
+
+5. Generate more questions:
+```bash
+curl -X POST http://localhost:8000/generate-more-questions/{session_id}?num_questions=3
+```
+
+6. Delete an exam session:
+```bash
+curl -X DELETE http://localhost:8000/exam/{session_id}
+```
+
+## API Endpoints
+
+- `POST /start-exam`: Create a new exam session by uploading a document
+- `GET /exam/{session_id}`: Get questions for an exam session
+- `POST /submit-answer`: Submit and evaluate an answer
+- `POST /generate-more-questions/{session_id}`: Generate additional questions
+- `DELETE /exam/{session_id}`: Delete an exam session
+
+## Workflow
+
+1. **Document Upload**: User uploads a document (can be up to 25MB) with an optional summary
+2. **Question Generation**: System analyzes the document and generates questions across Bloom's Taxonomy levels
+3. **Answer Submission**: User submits answers to questions
+4. **Answer Evaluation**: System evaluates answers and provides detailed feedback
+5. **Additional Questions**: User can request more questions if needed
+
+## Architecture
+
+The system uses a RAG (Retrieval-Augmented Generation) architecture:
+1. Documents are processed and split into chunks
+2. Document is analyzed to identify key topics and sections
+3. Questions are generated to ensure comprehensive coverage
+4. Answers are evaluated using the original document context
+
+## Dependencies
+
+- FastAPI: Web framework
+- LangChain: LLM framework
+- OpenAI: LLM provider
+- FAISS: Vector store
+- Various document loaders for different file formats
 
 ## Progress
 - [x] Setup a chatbot with tavily search tool from end to end with in memory cache
 - [ ] Add state to maintain structure output
-
-## Features
-
-- Intelligent Learning Path Analysis and Educational Resource Recommendations [🚧]
-- 🎓 Personalized Learning Paths [🚧]
-- 💬 Interactive Conversations [🚧]
-- 📚 Multi-subject Support [🚧]
-- 📊 Progress Tracking [🚧]
-- 🔄 Adaptive Learning [🚧]
-- ✍️ Practice Exercises [🚧]
 
 ## Core Architecture
 Inspired by [gpt-researcher](https://github.com/assafelovic/gpt-researcher/) core architecture

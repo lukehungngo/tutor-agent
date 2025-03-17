@@ -1,15 +1,12 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from multi_agent.state_manager import StateManager
-from models.state import State, ReasoningResult, ResearchResult
+from models.state import ReasoningResult, ResearchResult
 from typing import Any
 from pydantic import BaseModel
 from uuid import uuid4
 from datetime import datetime
 
 router = APIRouter()
-state_manager = StateManager()
-graph = state_manager.get_graph()
 
 
 class ChatRequest(BaseModel):

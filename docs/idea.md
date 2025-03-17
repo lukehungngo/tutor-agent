@@ -40,7 +40,7 @@ User Study Material
   └───────┬───────┘
           │
   ┌───────▼───────┐
-  │    Output     │ (Bloom’s Taxonomy-based questions)
+  │    Output     │ (Bloom’s Taxonomy-based questions or uses a Socratic approach – it asks students questions and prompts critical thinking)
   └───────────────┘
 ```
 

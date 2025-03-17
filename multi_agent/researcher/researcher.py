@@ -16,29 +16,6 @@ class Researcher:
         self.llm = llm
         self.tools = tools
         self.prompt = hub.pull("hwchase17/react")
-        # prompt = """
-        # You are a helpful assistant that can search the web for information and gather as much information as possible.
-        # Answer the following questions as best you can. You have access to the following tools:
-
-        # {tools}
-
-        # Use the following format:
-
-        # Question: the input question you must answer
-        # Thought: you should always think about what to do
-        # Action: the action to take, should be one of [{tool_names}]
-        # Action Input: the input to the action
-        # Observation: the result of the action
-        # ... (this Thought/Action/Action Input/Observation can repeat N times)
-        # Thought: I now know the final answer
-        # Final Answer: the final answer to the original input question
-
-        # Begin!
-
-        # Question: {input}
-        # Thought:{agent_scratchpad}
-        # """
-        # self.prompt = PromptTemplate(template=prompt)
 
         self.agent = create_react_agent(llm, self.tools, self.prompt)
         self.agent_executor = AgentExecutor(
