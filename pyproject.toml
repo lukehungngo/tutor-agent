@@ -31,6 +31,15 @@ dependencies = [
     "numexpr==2.10.2",
     "jupyter",
     "markdown-text-clean",
+    "torch==2.2.2",
+    "torchaudio==2.2.2",
+    "torchvision==0.17.2",
+    "transformers==4.47.0",
+    "sentence-transformers==3.4.1",
+    "langchain-huggingface==0.1.2",
+    "python-multipart",
+    "numpy==1.26.4",
+    "pypdf"
 ]
 
 [build-system]
