@@ -58,25 +58,23 @@ Guidelines for each level:
 - CREATE: Require creating something new or proposing alternative solutions
 
 Return the questions in JSON format like this:
-{
+{{
     "questions": [
-        {
+        {{
             "level": "remember",
             "question": "...",
             "hint": "...",
             "answer": "..."
-        },
+        }},
         ...
     ]
-}"""
+}}"""
 
         return PromptTemplate(
             input_variables=["context", "level_requirements"], template=template
         )
 
-    def _format_level_requirements(
-        self, questions_per_level: Dict[BloomLevel, int]
-    ):
+    def _format_level_requirements(self, questions_per_level: Dict[BloomLevel, int]):
         """Format the requirements for each Bloom's level."""
         requirements = []
         for level, count in questions_per_level.items():

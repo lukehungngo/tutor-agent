@@ -10,7 +10,6 @@ from langchain_community.document_loaders import (
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_huggingface import HuggingFaceEmbeddings
-import numpy as np
 from langchain.chains.summarize import load_summarize_chain
 from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline
@@ -41,7 +40,7 @@ class DocumentProcessor:
                 "normalize_embeddings": True,
                 "convert_to_tensor": True,  # Set to False if you want numpy arrays
             },
-            cache_folder="./embedding_cache",  # Add caching for better performance
+            cache_folder="./.embedding_cache",  # Add caching for better performance
         )
         self.vector_store = None
         self.documents = []
@@ -110,66 +109,6 @@ class DocumentProcessor:
 
         return self.vector_store.similarity_search(query, k=k)
 
-    def process_with_metadata(self, metadata: Dict[str, Any]):
-        """
-        Process documents with additional metadata.
-
-        Args:
-            metadata: Additional metadata to add to documents
-
-        Returns:
-            List of document chunks with metadata
-        """
-        if not self.documents:
-            raise ValueError("No documents loaded. Call load_document first.")
-
-        # Add metadata to all documents
-        for doc in self.documents:
-            doc.metadata.update(metadata)
-
-        chunks = self.process_documents()
-        return chunks
-
-    def get_document_summary_2(self, num_clusters=10, summary_length=5):
-        """Summarize document using embeddings-based clustering"""
-        if not self.documents:
-            raise ValueError("No documents loaded.")
-
-        chunks = self.process_documents()
-
-        # Generate embeddings for all chunks
-        embeddings = self.embeddings.embed_documents([c.page_content for c in chunks])
-
-        # Cluster embeddings (using KMeans or similar)
-        from sklearn.cluster import KMeans
-        kmeans = KMeans(n_clusters=num_clusters)
-        kmeans.fit(embeddings)
-
-        # Find chunks closest to each cluster center
-        from sklearn.metrics.pairwise import cosine_similarity
-        centers = kmeans.cluster_centers_
-
-        representative_chunks = []
-        for i in range(num_clusters):
-            # Get chunks in this cluster
-            cluster_indices = [j for j, label in enumerate(kmeans.labels_) if label == i]
-            if not cluster_indices:
-                continue
-
-            # Find chunk closest to center
-            cluster_embeddings = np.array([embeddings[j] for j in cluster_indices])
-            center = np.array([centers[i]])  # Make sure this is also a 2D array
-            similarities = cosine_similarity(center, cluster_embeddings)[0]
-            closest_idx = cluster_indices[np.argmax(similarities)]
-
-            representative_chunks.append(chunks[closest_idx])
-
-        # Sort by importance (cluster size)
-        cluster_sizes = [sum(1 for label in kmeans.labels_ if label == i) for i in range(num_clusters)]
-        sorted_chunks = [c for _, c in sorted(zip(cluster_sizes, representative_chunks), reverse=True)]
-
-        return "\n\n---\n\n".join([c.page_content for c in sorted_chunks[:summary_length]])
-
     def _format_summary(self, chunks):
         """Format chunks into a readable summary"""
         if not chunks:
@@ -197,7 +136,7 @@ class DocumentProcessor:
         return "\n\n---\n\n".join(formatted_chunks)
 
     @time_execution
-    def abstractive_summarize_with_langchain(self, summary_chunks):
+    def abstractive_summarize(self, summary_chunks):
         """
         Create an abstractive summary using a language model.
 
@@ -215,7 +154,7 @@ class DocumentProcessor:
                 # For small documents, use stuff chain
                 summarizer = pipeline(
                     "summarization",
-                    model="google/gemma-3-4b-it",
+                    model="google/gemma-3-1b-it",
                     device="mps",
                     max_length=120000,
                     min_length=50,
@@ -268,82 +207,6 @@ class DocumentProcessor:
             traceback.print_exc()
             return self._format_summary(summary_chunks)
 
-    @time_execution
-    def abstractive_summarize(self, summary_chunks):
-        """
-        Create an abstractive summary using Phi-3.5-mini model.
-
-        Args:
-            summary_chunks: List of document chunks to summarize
-
-        Returns:
-            String with abstractive summary
-        """
-        try:
-            print(f"Summarizing {len(summary_chunks)} chunks")
-
-            # First combine the chunks to get a complete context
-            if len(summary_chunks) <= 15:
-                # For small documents, use Phi-3.5-mini directly
-                print("Using Phi-3.5-mini for direct summarization")
-
-                # Extract and combine content
-                combined_text = "\n\n".join(
-                    [chunk.page_content for chunk in summary_chunks]
-                )
-
-                # Generate summary with Phi-3.5-mini
-                result = self.summary_model.generate_summary(
-                    combined_text,
-                )
-                print(f"Summary generated: {result}")
-                return result
-            else:
-                # For larger documents, process chunks in batches
-                print("Processing larger document in batches with Phi-3.5-mini")
-
-                # Process chunks in batches of 3
-                batch_size = 15
-                summaries = []
-
-                for i in range(0, len(summary_chunks), batch_size):
-                    print(
-                        f"Processing batch {i//batch_size + 1} of {len(summary_chunks)//batch_size}"
-                    )
-                    batch = summary_chunks[i : i + batch_size]
-                    combined_batch = "\n\n".join(
-                        [chunk.page_content for chunk in batch]
-                    )
-                    batch_summary = self.summary_model.generate_summary(combined_batch)
-                    summaries.append(batch_summary)
-
-                print("Begin to generate final summary")
-                # Create final summary from batch summaries
-                if len(summaries) > 1:
-                    final_text = "\n\n".join(summaries)
-                    final_summary = self.summary_model.generate_summary(
-                        final_text,
-                        config=GenerationConfig(
-                            max_new_tokens=768,  # Smaller for batch summaries
-                            min_new_tokens=100,
-                            temperature=0.2,
-                            repetition_penalty=1.2,
-                        ),
-                    )
-                    print(f"Final summary: {final_summary}")
-                    return final_summary
-                else:
-                    print(f"Final summary: {summaries[0]}")
-                    return summaries[0]
-
-        except Exception as e:
-            # Fallback to extractive if abstractive fails
-            print(f"Abstractive summarization failed: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return self._format_summary(summary_chunks)
-
     def get_document_summary(self):
         chunks = self.process_documents()
-        return self.abstractive_summarize_with_langchain(chunks)
+        return self.abstractive_summarize(chunks)
