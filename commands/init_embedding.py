@@ -4,6 +4,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
 import warnings
 import os
+
 os.environ["MPS_GRAPH_CACHE_DEPTH"] = "2"
 os.environ["PYTORCH_MPS_MAX_ALLOC_BUFFER_SIZE"] = "4096"
 
@@ -22,16 +23,16 @@ embeddings = HuggingFaceEmbeddings(
     encode_kwargs={
         "batch_size": 128,
         "normalize_embeddings": True,
-        "convert_to_numpy": True  # Ensure NumPy array output
-    }
+        "convert_to_numpy": True,  # Ensure NumPy array output
+    },
 )
-    
+
 # Sample documents
 documents = [
     "Machine learning is revolutionizing various industries.",
     "Deep learning models require large amounts of data.",
     "Natural language processing enables better human-computer interaction.",
-    "Computer vision systems can analyze visual information."
+    "Computer vision systems can analyze visual information.",
 ] * 32  # Creates 128 documents
 # Generate embeddings (returns NumPy array when convert_to_numpy=True)
 embeddings_array = embeddings.embed_documents(documents)

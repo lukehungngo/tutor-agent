@@ -16,3 +16,4 @@ venv
 .idea/
 .venv/
 .vscode/
+.embedding_cache/

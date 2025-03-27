@@ -7,6 +7,7 @@ import os
 import uuid
 from tempfile import NamedTemporaryFile
 from core import DocumentProcessor
+from utils import async_time_execution
 
 app = FastAPI(title="Simple Document Processor API")
 
@@ -36,6 +37,7 @@ class SessionInfo(BaseModel):
 
 
 @app.post("/upload", response_model=SessionInfo)
+@async_time_execution
 async def upload_document(file: UploadFile = File(...)):
     """Upload and process a document."""
     try:
@@ -52,7 +54,7 @@ async def upload_document(file: UploadFile = File(...)):
 
         try:
             # Initialize processor for this session
-            processor = DocumentProcessor(chunk_size=500, chunk_overlap=100)
+            processor = DocumentProcessor()
 
             # Process document
             docs = processor.load_document(temp_path)
@@ -83,6 +85,7 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @app.post("/query")
+@async_time_execution
 async def query_document(request: QueryRequest):
     """Query the document."""
     try:
@@ -95,6 +98,7 @@ async def query_document(request: QueryRequest):
 
 
 @app.post("/summary")
+@async_time_execution
 async def get_document_summary(request: QueryRequest):
     """Get the document summary."""
     try:
