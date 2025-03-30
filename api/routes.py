@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Any
@@ -6,10 +6,12 @@ import tempfile
 import os
 import uuid
 from tempfile import NamedTemporaryFile
-from core import DocumentProcessor
-from utils import async_time_execution
+from core import DocumentProcessor, ExamGenerator, Gemma3QuestionGenerator, BloomAbstractLevel
+from utils import async_time_execution, logger
 
 app = FastAPI(title="Simple Document Processor API")
+gemma3_question_generator = Gemma3QuestionGenerator()
+exam_generator = ExamGenerator(gemma3_question_generator)
 
 # Add CORS middleware
 app.add_middleware(
@@ -21,8 +23,35 @@ app.add_middleware(
 )
 
 # Store processors for different sessions
-document_processors = {}
+document_processors: dict[str, DocumentProcessor] = {}
 
+# Session management
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on application shutdown."""
+    logger.info("Application shutting down, cleaning up resources...")
+    
+    # Clean up document processors
+    for session_id, processor in list(document_processors.items()):
+        await cleanup_session(session_id)
+        
+    # Clean up global models
+    if gemma3_question_generator:
+        gemma3_question_generator.cleanup()
+        
+    logger.info("Resource cleanup complete")
+
+async def cleanup_session(session_id: str):
+    """Clean up resources for a specific session."""
+    if session_id in document_processors:
+        logger.info(f"Cleaning up session {session_id}")
+        try:
+            processor = document_processors[session_id]
+            # Add any specific cleanup for DocumentProcessor if needed
+            del document_processors[session_id]
+            logger.info(f"Session {session_id} cleaned up")
+        except Exception as e:
+            logger.error(f"Error cleaning up session {session_id}: {e}")
 
 class QueryRequest(BaseModel):
     query: str
@@ -34,6 +63,12 @@ class SessionInfo(BaseModel):
     session_id: str
     document_name: str
     chunk_count: int
+
+class ExamRequest(BaseModel):
+    session_id: str
+    bloom_level: BloomAbstractLevel
+    from_chunk: int
+    to_chunk: int
 
 
 @app.post("/upload", response_model=SessionInfo)
@@ -106,3 +141,34 @@ async def get_document_summary(request: QueryRequest):
         return processor.get_document_summary()
     except Exception as e:
         print(e)
+
+
+@app.post("/generate_exam")
+@async_time_execution
+async def generate_exam(request: ExamRequest):
+    """Generate an exam."""
+    try:
+        processor = document_processors[request.session_id]
+        chunks = processor.get_document_chunks(request.from_chunk, request.to_chunk)
+        summary = processor.generate_brief_summary(chunks)
+        logger.info(f"Summary: {summary}")
+        result = await exam_generator.generate_exam(
+            summary, [chunk.page_content for chunk in chunks], bloom_level=request.bloom_level
+        )
+        logger.info(f"Result: {result}")
+        return [
+            item.as_dict()
+            for item in result
+        ]
+    except Exception as e:
+        print(e)
+
+@app.post("/close_session")
+@async_time_execution
+async def close_session(session_id: str):
+    """Close a session and clean up its resources."""
+    if session_id not in document_processors:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    await cleanup_session(session_id)
+    return {"status": "success", "message": f"Session {session_id} closed"}

@@ -31,9 +31,43 @@ class Gemma3Model:
         self.max_tokens = max_tokens
         self.device = device
         self.torch_dtype = torch_dtype
+        self.model = None
+        self.tokenizer = None
+        self.text_generation = None
 
         # Set up the model
         self._setup_model()
+        
+    def __del__(self):
+        """Clean up resources when the object is destroyed."""
+        self.cleanup()
+        
+    def cleanup(self):
+        """Explicitly clean up resources to prevent memory and semaphore leaks."""
+        try:
+            # Remove references to large objects to help garbage collection
+            if hasattr(self, 'text_generation') and self.text_generation is not None:
+                del self.text_generation
+                self.text_generation = None
+                
+            if hasattr(self, 'model') and self.model is not None:
+                del self.model
+                self.model = None
+                
+            if hasattr(self, 'tokenizer') and self.tokenizer is not None:
+                del self.tokenizer
+                self.tokenizer = None
+                
+            # Force garbage collection
+            import gc
+            gc.collect()
+            
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                
+            logger.info(f"Cleaned up resources for {self.model_name}")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
 
     def _setup_model(self):
         """Set up the model with proper error handling."""
@@ -119,9 +153,9 @@ class Gemma3Model:
         return formatted_prompt
 
     @time_execution
-    def generate_json(
+    def generate(
         self, prompt: str, schema: Optional[Dict] = None, **kwargs
-    ) -> Dict:
+    ) -> Union[Dict, str]:
         """Generate and parse a JSON response from the model.
 
         Args:
@@ -134,16 +168,7 @@ class Gemma3Model:
         """
         # Use default schema if none provided
         if schema is None:
-            schema = {
-                "questions": [
-                    {
-                        "level": "remember",
-                        "question": "What is supervised learning?",
-                        "hint": "Think about labeled data",
-                        "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
-                    }
-                ]
-            }
+            return self.generate_text(prompt, **kwargs)
 
         # Format the prompt for JSON generation
         formatted_prompt = self._format_prompt_for_json(prompt, schema)
@@ -176,7 +201,6 @@ class Gemma3Model:
                 "details": str(e),
             }
 
-    @time_execution
     def generate_text(self, prompt: str, **kwargs) -> str:
         """Generate text using the Gemma 3 model.
 
@@ -245,9 +269,9 @@ if __name__ == "__main__":
 
         # Define a simple prompt template
         template = """
-        Generate questions about the following topic:
+        Generate questions about the following context:
         
-        TOPIC: {context}
+        CONTEXT: {context}
         
         Create {number_of_questions} questions for "analyze" level based on Bloom's Taxonomy.
         Create {number_of_questions} questions for "create" level based on Bloom's Taxonomy.
@@ -265,11 +289,73 @@ if __name__ == "__main__":
 
         # Generate JSON response
         logger.info("Generating JSON response...")
-        json_response = gemma.generate_json(prompt)
+        json_response = gemma.generate(
+            prompt,
+            schema={
+                "questions": [
+                    {
+                        "level": "analyze",
+                        "question": "What is supervised learning?",
+                        "hint": "Think about labeled data",
+                        "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
+                    }
+                ]
+            },
+        )
+        logger.info(f"JSON response: {json.dumps(json_response, indent=2)}")
+        # Generate questions using Bloom's Taxonomy prompts
 
-        # Print the response
-        logger.info("\nJSON Response:")
-        logger.info(json.dumps(json_response, indent=2))
+        text_response = gemma.generate(prompt)
+        logger.info(f"Text response: {text_response}")
+        logger.info("Generating questions using Bloom's Taxonomy prompts...")
+
+        # Define Bloom's Taxonomy prompts
+        bloom_prompts = {
+            "remember": """Given the following content:
+                {context}
+                Generate a question for "remember" level in bloom's taxonomy that tests the recall of basic facts, definitions, concepts, or principles.
+                """,
+            "understand": """Given the following content:
+                {context}
+                Generate a question for "understand" level in bloom's taxonomy that requires explaining ideas or concepts in their own words.
+                """,
+            "apply": """Given the following content:
+                {context}
+                Generate a question for "apply" level in bloom's taxonomy that requires applying learned information to solve a problem or new situation.
+                """,
+            "analyze": """Given the following content:
+                {context}
+                Generate a question for "analyze" level in bloom's taxonomy that requires breaking down information and establishing relationships between concepts.
+                """,
+            "evaluate": """Given the following content:
+                {context}
+                Generate a question for "evaluate" level in bloom's taxonomy that requires making judgments or evaluating outcomes based on criteria.
+                """,
+            "create": """Given the following content:
+                {context}
+                Generate a question for "create" level in bloom's taxonomy that requires creating something new or proposing alternative solutions.
+                """,
+        }
+
+        # Example of using a specific Bloom's level prompt
+        context = "Machine learning algorithms and their applications in healthcare"
+        for level in bloom_prompts:
+            prompt = bloom_prompts[level].format(context=context)
+            question = gemma.generate(
+                prompt,
+                schema={
+                    "questions": [
+                        {
+                            "level": level,
+                            "question": "What is supervised learning?",
+                            "hint": "Think about labeled data",
+                            "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
+                        }
+                    ]
+                },
+            )
+            logger.info(f"Question for {level} level:")
+            logger.info(f"{json.dumps(question, indent=2)}")
 
     except KeyboardInterrupt:
         logger.info("\nOperation cancelled by user.")
