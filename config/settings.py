@@ -15,7 +15,9 @@ class Settings:
     google_gemini_api_key: SecretStr = SecretStr(os.getenv("GEMINI_API_KEY", ""))
     llm = open_api_client
     tavily_api_key = os.getenv("TAVILY_API_KEY")
-
+    mongodb_uri = os.getenv("MONGODB_URI")
+    mongodb_collection_name = os.getenv("MONGODB_COLLECTION_NAME") or "tutor_agent"
+    
     def __init__(self):  # Initialize the gemini client when settings instance is called
         self.google_gemini_client: ChatGoogleGenerativeAI = ChatGoogleGenerativeAI(
             api_key=self.google_gemini_api_key,

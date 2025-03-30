@@ -37,34 +37,35 @@ class Gemma3Model:
 
         # Set up the model
         self._setup_model()
-        
+
     def __del__(self):
         """Clean up resources when the object is destroyed."""
         self.cleanup()
-        
+
     def cleanup(self):
         """Explicitly clean up resources to prevent memory and semaphore leaks."""
         try:
             # Remove references to large objects to help garbage collection
-            if hasattr(self, 'text_generation') and self.text_generation is not None:
+            if hasattr(self, "text_generation") and self.text_generation is not None:
                 del self.text_generation
                 self.text_generation = None
-                
-            if hasattr(self, 'model') and self.model is not None:
+
+            if hasattr(self, "model") and self.model is not None:
                 del self.model
                 self.model = None
-                
-            if hasattr(self, 'tokenizer') and self.tokenizer is not None:
+
+            if hasattr(self, "tokenizer") and self.tokenizer is not None:
                 del self.tokenizer
                 self.tokenizer = None
-                
+
             # Force garbage collection
             import gc
+
             gc.collect()
-            
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-                
+
             logger.info(f"Cleaned up resources for {self.model_name}")
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")

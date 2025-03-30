@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Any
+from typing import List, Any
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
@@ -7,17 +7,15 @@ from langchain_community.document_loaders import (
     UnstructuredFileLoader,
     CSVLoader,
 )
-from langchain.embeddings import Embeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.chains.summarize import load_summarize_chain
 from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline
-from langchain.prompts import PromptTemplate
-from pre_trained_model import phi35mini, GenerationConfig
 from utils import time_execution, logger
 import torch
+
 
 class DocumentProcessor:
     """A simple document processor that handles loading, chunking, and vector storage."""
@@ -34,7 +32,7 @@ class DocumentProcessor:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
-        self.embeddings : Embeddings = HuggingFaceEmbeddings(
+        self.embeddings : Any = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
             model_kwargs={"device": "mps"},  # Remove torch_dtype parameter
             encode_kwargs={
@@ -46,33 +44,34 @@ class DocumentProcessor:
         )
         self.vector_store = None
         self.documents = []
-        
+
     def __del__(self):
         """Clean up resources when the object is garbage collected."""
         self.cleanup()
-        
+
     def cleanup(self):
         """Explicitly clean up resources to prevent memory and semaphore leaks."""
         try:
             # Clean up vector store if needed
-            if hasattr(self, 'vector_store') and self.vector_store is not None:
+            if hasattr(self, "vector_store") and self.vector_store is not None:
                 # Remove reference to help garbage collection
                 self.vector_store = None
-            
+
             # Clean up embeddings model
-            if hasattr(self, 'embeddings') and self.embeddings is not None:
+            if hasattr(self, "embeddings") and self.embeddings is not None:
                 # HuggingFaceEmbeddings don't have an explicit cleanup method,
                 # but we can help garbage collection by removing the reference
                 self.embeddings = None
-                
+
             # Clear document references
-            if hasattr(self, 'documents'):
+            if hasattr(self, "documents"):
                 self.documents = []
-                
+
             # Force garbage collection
             import gc
+
             gc.collect()
-            
+
             logger.info("Cleaned up DocumentProcessor resources")
         except Exception as e:
             logger.error(f"Error during DocumentProcessor cleanup: {e}")
@@ -143,30 +142,32 @@ class DocumentProcessor:
     def get_document_chunks(self, from_page: int, to_page: int) -> List[Document]:
         """
         Get document chunks from a specific page range.
-        
+
         Args:
             from_page: Starting page number (inclusive, 0-indexed)
             to_page: Ending page number (exclusive, 0-indexed)
-            
+
         Returns:
             List of document chunks in the specified range
-            
+
         Raises:
             ValueError: If no documents are loaded or page numbers are invalid
         """
         if not self.documents:
             logger.error("No documents loaded. Call load_document first.")
             raise ValueError("No documents loaded. Call load_document first.")
-        
+
         # Handle invalid page numbers
         total_pages = len(self.documents)
-        
+
         # Validate and adjust page ranges
         from_page = max(0, min(from_page, total_pages - 1))
-        to_page = max(from_page + 1, min(to_page + 1, total_pages))  # +1 to make it inclusive
-        
+        to_page = max(
+            from_page + 1, min(to_page + 1, total_pages)
+        )  # +1 to make it inclusive
+
         logger.info(f"Retrieving document chunks from page {from_page} to {to_page-1}")
-        
+
         return self.documents[from_page:to_page]
 
     def _format_summary(self, chunks):

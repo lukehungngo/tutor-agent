@@ -1,4 +1,12 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Depends, BackgroundTasks
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    HTTPException,
+    Form,
+    Depends,
+    BackgroundTasks,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Any
@@ -6,12 +14,20 @@ import tempfile
 import os
 import uuid
 from tempfile import NamedTemporaryFile
-from core import DocumentProcessor, ExamGenerator, Gemma3QuestionGenerator, BloomAbstractLevel
+from core import (
+    DocumentProcessor,
+    ExamGenerator,
+    Gemma3QuestionGenerator,
+    Gemma3AnswerEvaluator,
+    AnswerEvaluator,
+)
+from models.exam import BloomAbstractLevel
 from utils import async_time_execution, logger
+from config.settings import settings
 
 app = FastAPI(title="Simple Document Processor API")
-gemma3_question_generator = Gemma3QuestionGenerator()
-exam_generator = ExamGenerator(gemma3_question_generator)
+exam_generator = ExamGenerator(Gemma3QuestionGenerator())
+answer_evaluator = AnswerEvaluator(Gemma3AnswerEvaluator())
 
 # Add CORS middleware
 app.add_middleware(
@@ -25,33 +41,6 @@ app.add_middleware(
 # Store processors for different sessions
 document_processors: dict[str, DocumentProcessor] = {}
 
-# Session management
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up resources on application shutdown."""
-    logger.info("Application shutting down, cleaning up resources...")
-    
-    # Clean up document processors
-    for session_id, processor in list(document_processors.items()):
-        await cleanup_session(session_id)
-        
-    # Clean up global models
-    if gemma3_question_generator:
-        gemma3_question_generator.cleanup()
-        
-    logger.info("Resource cleanup complete")
-
-async def cleanup_session(session_id: str):
-    """Clean up resources for a specific session."""
-    if session_id in document_processors:
-        logger.info(f"Cleaning up session {session_id}")
-        try:
-            processor = document_processors[session_id]
-            # Add any specific cleanup for DocumentProcessor if needed
-            del document_processors[session_id]
-            logger.info(f"Session {session_id} cleaned up")
-        except Exception as e:
-            logger.error(f"Error cleaning up session {session_id}: {e}")
 
 class QueryRequest(BaseModel):
     query: str
@@ -64,12 +53,17 @@ class SessionInfo(BaseModel):
     document_name: str
     chunk_count: int
 
+
 class ExamRequest(BaseModel):
     session_id: str
     bloom_level: BloomAbstractLevel
     from_chunk: int
     to_chunk: int
 
+class EvaluateAnswerRequest(BaseModel):
+    session_id: str
+    question_id: str
+    answer: str
 
 @app.post("/upload", response_model=SessionInfo)
 @async_time_execution
@@ -153,22 +147,27 @@ async def generate_exam(request: ExamRequest):
         summary = processor.generate_brief_summary(chunks)
         logger.info(f"Summary: {summary}")
         result = await exam_generator.generate_exam(
-            summary, [chunk.page_content for chunk in chunks], bloom_level=request.bloom_level
+            summary,
+            [chunk.page_content for chunk in chunks],
+            bloom_level=request.bloom_level,
         )
         logger.info(f"Result: {result}")
-        return [
-            item.as_dict()
-            for item in result
-        ]
+        return [item.as_dict() for item in result]
     except Exception as e:
         print(e)
 
-@app.post("/close_session")
+
+@app.post("/evaluate_answer")
 @async_time_execution
-async def close_session(session_id: str):
-    """Close a session and clean up its resources."""
-    if session_id not in document_processors:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    await cleanup_session(session_id)
-    return {"status": "success", "message": f"Session {session_id} closed"}
+async def evaluate_answer(request: EvaluateAnswerRequest):
+    """Evaluate an answer."""
+    try:
+        # processor = document_processors[request.session_id]
+        # TODO: get question from mongo
+        context = """Here's a summary of the provided text focusing solely on the core concepts and ideas:\n\nThe Ethereum protocol utilizes a secure, decentralized ledger technology – version 11 – designed to create and maintain accounts without requiring traditional funds transfers.  Key features include “σ′, “g′,” and “A‶ states representing the current state, pending gas, and accumulated substates, respectively. These states allow for precise tracking of account activity, crucial for verifying transactions and ensuring security.  Messages involve complex calculations utilizing cryptographic hashes and require careful management of gas consumption. Errors within the execution process necessitate reverting the account to a safe state, preventing irreversible loss of assets. Essentially, Ethereum provides a robust mechanism for recording and validating digital asset transactions while maintaining decentralization and immutability"""
+        question = "Explain the role of the gas cost in the EVM, and how it relates to the execution of a transaction."
+        student_answer = "The gas cost represents the computational effort required to execute the transaction. It’s proportional to the size of the operation and the complexity of the state changes, and is paid for on a just-in-time basis"
+        evaluation = await answer_evaluator.evaluate_answer(context, question, student_answer)
+        return evaluation
+    except Exception as e:
+        print(e)

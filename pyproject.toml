@@ -40,7 +40,8 @@ dependencies = [
     "python-multipart",
     "numpy",
     "pypdf",
-    "accelerate>=0.26.0"
+    "accelerate>=0.26.0",
+    "pymongo",
 ]
 
 [build-system]
