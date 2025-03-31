@@ -3,10 +3,14 @@ from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import SecretStr
 import os
+from pathlib import Path
 
 os.environ["GRPC_PYTHON_LOG_LEVEL"] = "0"
 load_dotenv(".env")
 SUPPORTED_MODELS = ["gpt-4o-mini-2024-07-18", "gemini-2.0-flash"]
+
+# Get the project root directory
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 class Settings:
@@ -17,6 +21,7 @@ class Settings:
     tavily_api_key = os.getenv("TAVILY_API_KEY")
     mongodb_uri = os.getenv("MONGODB_URI")
     mongodb_collection_name = os.getenv("MONGODB_COLLECTION_NAME") or "tutor_agent"
+    chroma_persist_dir = os.getenv("CHROMA_PERSIST_DIR", str(PROJECT_ROOT / ".chroma_db"))
     
     def __init__(self):  # Initialize the gemini client when settings instance is called
         self.google_gemini_client: ChatGoogleGenerativeAI = ChatGoogleGenerativeAI(

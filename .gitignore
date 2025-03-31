@@ -19,3 +19,4 @@ venv
 embedding_cache/
 .embedding_cache/
 model_cache/
+.chroma_db/

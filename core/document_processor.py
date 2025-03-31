@@ -1,49 +1,48 @@
+from typing import List, Optional
 import os
-from typing import List, Any
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
     TextLoader,
     UnstructuredFileLoader,
     CSVLoader,
+    PyPDFLoader,
 )
-from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.chains.summarize import load_summarize_chain
 from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline
 from utils import time_execution, logger
 import torch
-
+from db.chroma_embedding import ChromaEmbeddingStore
+from config.settings import settings
 
 class DocumentProcessor:
-    """A simple document processor that handles loading, chunking, and vector storage."""
+    """Document processor with ChromaDB persistence for vector storage."""
 
-    # 3000 characters each to one page of the document on average
-    def __init__(self, chunk_size: int = 3000, chunk_overlap: int = 500):
+    def __init__(self, 
+                 chunk_size: int = 3000, 
+                 chunk_overlap: int = 500,
+                 embedding_store: Optional[ChromaEmbeddingStore] = None,
+                 chroma_dir: Optional[str] = None):
         """
         Initialize the document processor.
 
         Args:
             chunk_size: Size of document chunks
             chunk_overlap: Overlap between chunks
+            embedding_store: ChromaEmbeddingStore instance or None to create new
+            chroma_dir: Directory to store ChromaDB files, defaults to settings.chroma_persist_dir
         """
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
-        self.embeddings : Any = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={"device": "mps"},  # Remove torch_dtype parameter
-            encode_kwargs={
-                "batch_size": 32,  # Reduced from 128 for better stability
-                "normalize_embeddings": True,
-                "convert_to_tensor": True,  # Set to False if you want numpy arrays
-            },
-            cache_folder="./.embedding_cache",  # Add caching for better performance
+        
+        # Use provided embedding store or create a new one
+        self.embedding_store = embedding_store or ChromaEmbeddingStore(
+            persist_directory=chroma_dir or settings.chroma_persist_dir
         )
-        self.vector_store = None
+        
         self.documents = []
+        self.session_id = None
 
     def __del__(self):
         """Clean up resources when the object is garbage collected."""
@@ -52,16 +51,9 @@ class DocumentProcessor:
     def cleanup(self):
         """Explicitly clean up resources to prevent memory and semaphore leaks."""
         try:
-            # Clean up vector store if needed
-            if hasattr(self, "vector_store") and self.vector_store is not None:
-                # Remove reference to help garbage collection
-                self.vector_store = None
-
-            # Clean up embeddings model
-            if hasattr(self, "embeddings") and self.embeddings is not None:
-                # HuggingFaceEmbeddings don't have an explicit cleanup method,
-                # but we can help garbage collection by removing the reference
-                self.embeddings = None
+            # Clean up embedding store
+            if hasattr(self, "embedding_store") and self.embedding_store is not None:
+                self.embedding_store.cleanup()
 
             # Clear document references
             if hasattr(self, "documents"):
@@ -69,23 +61,26 @@ class DocumentProcessor:
 
             # Force garbage collection
             import gc
-
             gc.collect()
 
             logger.info("Cleaned up DocumentProcessor resources")
         except Exception as e:
             logger.error(f"Error during DocumentProcessor cleanup: {e}")
 
-    def load_document(self, file_path: str):
+    def load_document(self, file_path: str, session_id: Optional[str] = None):
         """
-        Load a document from a file path.
+        Load a document from a file path and initialize a session.
 
         Args:
             file_path: Path to the document
+            session_id: Optional session ID, generated if not provided
 
         Returns:
             List of document objects
         """
+        # Generate session ID if not provided
+        self.session_id = session_id or f"session_{os.path.basename(file_path)}_{id(self)}"
+        
         file_extension = os.path.splitext(file_path)[1].lower()
 
         try:
@@ -100,6 +95,18 @@ class DocumentProcessor:
                 loader = UnstructuredFileLoader(file_path)
 
             self.documents = loader.load()
+            
+            # Add metadata about the source
+            for i, doc in enumerate(self.documents):
+                if not hasattr(doc, 'metadata'):
+                    doc.metadata = {}
+                    
+                doc.metadata.update({
+                    "source": file_path,
+                    "filename": os.path.basename(file_path),
+                    "chunk_id": i,
+                })
+                
             return self.documents
         except Exception as e:
             raise ValueError(f"Error loading document: {str(e)}")
@@ -111,16 +118,23 @@ class DocumentProcessor:
 
         return self.text_splitter.split_documents(self.documents)
 
+    @time_execution
     def create_vector_store(self):
         """
-        Create a vector store from processed documents.
+        Create a vector store from processed documents and persist it.
         """
         if not self.documents:
             raise ValueError("No documents loaded. Call load_document first.")
+        if not self.session_id:
+            raise ValueError("Session ID not set. Call load_document first.")
 
         chunks = self.process_documents()
-        self.vector_store = FAISS.from_documents(chunks, self.embeddings)
+        
+        # Store documents and create embeddings in the ChromaDB store
+        self.embedding_store.create_session(self.session_id, chunks)
+        logger.info(f"Created and persisted vector store for session {self.session_id}")
 
+    @time_execution
     def similarity_search(self, query: str, k: int = 4):
         """
         Perform similarity search on the vector store.
@@ -132,12 +146,21 @@ class DocumentProcessor:
         Returns:
             List of relevant document chunks
         """
-        if not self.vector_store:
-            raise ValueError(
-                "Vector store not initialized. Call create_vector_store first."
-            )
+        if not self.session_id:
+            raise ValueError("Session ID not set. Call load_document first.")
 
-        return self.vector_store.similarity_search(query, k=k)
+        results = self.embedding_store.similarity_search(self.session_id, query, k=k)
+        
+        # Convert to Document objects
+        documents = []
+        for result in results:
+            doc = Document(
+                page_content=result["text"],
+                metadata=result["metadata"]
+            )
+            documents.append(doc)
+            
+        return documents
 
     def get_document_chunks(self, from_page: int, to_page: int) -> List[Document]:
         """
@@ -226,6 +249,7 @@ class DocumentProcessor:
                 llm = HuggingFacePipeline(pipeline=summarizer)
 
                 # Use stuff chain for small documents
+                from langchain.chains.summarize import load_summarize_chain
                 map_reduce_chain = load_summarize_chain(
                     llm, chain_type="refine", verbose=True
                 )
@@ -249,6 +273,7 @@ class DocumentProcessor:
                 llm = HuggingFacePipeline(pipeline=summarizer)
 
                 # Use map_reduce with custom prompts
+                from langchain.chains.summarize import load_summarize_chain
                 print("Using map_reduce chain with custom prompts")
                 summary_chain = load_summarize_chain(
                     llm, chain_type="map_reduce", verbose=True
@@ -263,7 +288,6 @@ class DocumentProcessor:
             # Fallback to extractive if abstractive fails
             print(f"Abstractive summarization failed: {e}")
             import traceback
-
             traceback.print_exc()
             return self._format_summary(summary_chunks)
 
@@ -285,7 +309,7 @@ class DocumentProcessor:
             )
 
             # Create a summarization prompt
-            prompt = f"""Summarize the following text in about 150 words.
+            prompt = f"""Summarize the following text in about 150-300 words.
 Focus only on the main concepts, key points, and central ideas:
 
 {combined_text}

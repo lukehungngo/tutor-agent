@@ -3,9 +3,6 @@ from fastapi import (
     UploadFile,
     File,
     HTTPException,
-    Form,
-    Depends,
-    BackgroundTasks,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -21,13 +18,21 @@ from core import (
     Gemma3AnswerEvaluator,
     AnswerEvaluator,
 )
-from models.exam import BloomAbstractLevel
+from models.exam import BloomAbstractLevel, Question
 from utils import async_time_execution, logger
+from db.mongo import MongoDB
+from db.chroma_embedding import ChromaEmbeddingStore
+from langchain.schema import Document
+from pathlib import Path
 from config.settings import settings
 
-app = FastAPI(title="Simple Document Processor API")
+app = FastAPI(title="AI Tutor Document Processor API")
 exam_generator = ExamGenerator(Gemma3QuestionGenerator())
 answer_evaluator = AnswerEvaluator(Gemma3AnswerEvaluator())
+mongo_db = MongoDB()
+
+# Initialize ChromaDB embedding store
+embedding_store = ChromaEmbeddingStore(persist_directory=settings.chroma_persist_dir)
 
 # Add CORS middleware
 app.add_middleware(
@@ -60,10 +65,19 @@ class ExamRequest(BaseModel):
     from_chunk: int
     to_chunk: int
 
+
 class EvaluateAnswerRequest(BaseModel):
     session_id: str
     question_id: str
     answer: str
+
+
+class SubmitAnswerRequest(BaseModel):
+    session_id: str
+    question_id: str
+    user_id: str
+    answer: str
+
 
 @app.post("/upload", response_model=SessionInfo)
 @async_time_execution
@@ -82,11 +96,11 @@ async def upload_document(file: UploadFile = File(...)):
             temp_path = temp_file.name
 
         try:
-            # Initialize processor for this session
-            processor = DocumentProcessor()
+            # Initialize processor for this session with shared embedding store
+            processor = DocumentProcessor(embedding_store=embedding_store)
 
             # Process document
-            docs = processor.load_document(temp_path)
+            docs = processor.load_document(temp_path, session_id=session_id)
             chunks = processor.process_documents()
             processor.create_vector_store()
 
@@ -109,7 +123,7 @@ async def upload_document(file: UploadFile = File(...)):
             raise e
 
     except Exception as e:
-        print(e)
+        logger.error(f"Error uploading document: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -118,11 +132,28 @@ async def upload_document(file: UploadFile = File(...)):
 async def query_document(request: QueryRequest):
     """Query the document."""
     try:
+        # Check if processor exists for this session
+        if request.session_id not in document_processors:
+            # Create a new processor with the existing session
+            processor = DocumentProcessor(embedding_store=embedding_store)
+            # Set the session ID for this processor
+            processor.session_id = request.session_id
+            document_processors[request.session_id] = processor
+            
+            # Verify the session exists in the embedding store
+            if not embedding_store.load_session(request.session_id):
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Session {request.session_id} not found or could not be loaded"
+                )
+        
         processor = document_processors[request.session_id]
         results = processor.similarity_search(request.query, request.max_results)
         return [doc.page_content for doc in results]
+    except HTTPException:
+        raise
     except Exception as e:
-        print(e)
+        logger.error(f"Error querying document: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -131,10 +162,46 @@ async def query_document(request: QueryRequest):
 async def get_document_summary(request: QueryRequest):
     """Get the document summary."""
     try:
+        # Check if processor exists for this session
+        if request.session_id not in document_processors:
+            # Create a new processor with the existing session
+            processor = DocumentProcessor(embedding_store=embedding_store)
+            processor.session_id = request.session_id
+            document_processors[request.session_id] = processor
+            
+            # Verify the session exists in the embedding store
+            if not embedding_store.load_session(request.session_id):
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Session {request.session_id} not found or could not be loaded"
+                )
+                
+            # For summary generation, we need to load the documents
+            # Get all documents from the embedding store
+            all_docs = embedding_store.get_all_documents(request.session_id)
+            if not all_docs:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No documents found for session {request.session_id}"
+                )
+            
+            # Convert to Document objects for the processor
+            processor.documents = [
+                Document(
+                    page_content=doc["text"],
+                    metadata=doc["metadata"]
+                )
+                for doc in all_docs
+            ]
+        
         processor = document_processors[request.session_id]
-        return processor.get_document_summary()
+        summary = processor.get_document_summary()
+        return summary
+    except HTTPException:
+        raise
     except Exception as e:
-        print(e)
+        logger.error(f"Error generating summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/generate_exam")
@@ -142,32 +209,204 @@ async def get_document_summary(request: QueryRequest):
 async def generate_exam(request: ExamRequest):
     """Generate an exam."""
     try:
+        # Check if processor exists for this session
+        if request.session_id not in document_processors:
+            # Create a new processor with the existing session
+            processor = DocumentProcessor(embedding_store=embedding_store)
+            processor.session_id = request.session_id
+            document_processors[request.session_id] = processor
+            
+            # Verify the session exists in the embedding store
+            if not embedding_store.load_session(request.session_id):
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Session {request.session_id} not found or could not be loaded"
+                )
+                
+            # Load document chunks for exam generation
+            all_docs = embedding_store.get_all_documents(request.session_id)
+            processor.documents = [
+                Document(
+                    page_content=doc["text"],
+                    metadata=doc["metadata"]
+                )
+                for doc in all_docs
+            ]
+        
         processor = document_processors[request.session_id]
         chunks = processor.get_document_chunks(request.from_chunk, request.to_chunk)
         summary = processor.generate_brief_summary(chunks)
         logger.info(f"Summary: {summary}")
+        
         result = await exam_generator.generate_exam(
             summary,
             [chunk.page_content for chunk in chunks],
             bloom_level=request.bloom_level,
         )
-        logger.info(f"Result: {result}")
-        return [item.as_dict() for item in result]
+        
+        # Save questions to MongoDB
+        question_ids = mongo_db.save_questions(result)
+        
+        # Return questions with IDs
+        questions_with_ids = []
+        for i, question in enumerate(result):
+            question_dict = question.as_dict()
+            if i < len(question_ids):
+                question_dict["id"] = question_ids[i]
+            questions_with_ids.append(question_dict)
+            
+        return questions_with_ids
+    except HTTPException:
+        raise
     except Exception as e:
-        print(e)
+        logger.error(f"Error generating exam: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/evaluate_answer")
 @async_time_execution
 async def evaluate_answer(request: EvaluateAnswerRequest):
-    """Evaluate an answer."""
+    """Evaluate an answer to a question."""
     try:
-        # processor = document_processors[request.session_id]
-        # TODO: get question from mongo
-        context = """Here's a summary of the provided text focusing solely on the core concepts and ideas:\n\nThe Ethereum protocol utilizes a secure, decentralized ledger technology – version 11 – designed to create and maintain accounts without requiring traditional funds transfers.  Key features include “σ′, “g′,” and “A‶ states representing the current state, pending gas, and accumulated substates, respectively. These states allow for precise tracking of account activity, crucial for verifying transactions and ensuring security.  Messages involve complex calculations utilizing cryptographic hashes and require careful management of gas consumption. Errors within the execution process necessitate reverting the account to a safe state, preventing irreversible loss of assets. Essentially, Ethereum provides a robust mechanism for recording and validating digital asset transactions while maintaining decentralization and immutability"""
-        question = "Explain the role of the gas cost in the EVM, and how it relates to the execution of a transaction."
-        student_answer = "The gas cost represents the computational effort required to execute the transaction. It’s proportional to the size of the operation and the complexity of the state changes, and is paid for on a just-in-time basis"
-        evaluation = await answer_evaluator.evaluate_answer(context, question, student_answer)
-        return evaluation
+        # Retrieve question from MongoDB
+        question_data = mongo_db.get_question(request.question_id)
+        if not question_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Question {request.question_id} not found"
+            )
+        
+        # Evaluate the answer
+        context = question_data.get("context", "")
+        question_text = question_data.get("question", "")
+        evaluation = await answer_evaluator.evaluate_answer(
+            context, 
+            question_text, 
+            request.answer
+        )
+        
+        # Return evaluation results
+        return evaluation.as_dict()
+    except HTTPException:
+        raise
     except Exception as e:
-        print(e)
+        logger.error(f"Error evaluating answer: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/submit_answer")
+@async_time_execution
+async def submit_answer(request: SubmitAnswerRequest):
+    """Submit and save a user's answer to a question."""
+    try:
+        # First evaluate the answer
+        question_data = mongo_db.get_question(request.question_id)
+        if not question_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Question {request.question_id} not found"
+            )
+        
+        # Evaluate the answer
+        context = question_data.get("context", "")
+        question_text = question_data.get("question", "")
+        evaluation = await answer_evaluator.evaluate_answer(
+            context, 
+            question_text, 
+            request.answer
+        )
+        
+        # Calculate score based on correctness level
+        score = None
+        if evaluation.correctness_level.value == "correct":
+            score = 100
+        elif evaluation.correctness_level.value == "partially_correct":
+            score = 50
+        elif evaluation.correctness_level.value == "incorrect":
+            score = 0
+        
+        # Save the answer to MongoDB
+        answer_id = mongo_db.save_answer(
+            question_id=request.question_id,
+            user_id=request.user_id,
+            answer_text=request.answer,
+            score=score,
+            feedback=str(evaluation.as_dict())
+        )
+        
+        # Return the evaluation with the saved answer ID
+        result = evaluation.as_dict()
+        result["answer_id"] = answer_id
+        result["score"] = score
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting answer: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/sessions")
+async def list_sessions():
+    """List all available sessions."""
+    try:
+        # This will list all unique session IDs from the MongoDB collection
+        sessions = embedding_store.collection.distinct("metadata.session_id")
+        return {"sessions": sessions}
+    except Exception as e:
+        logger.error(f"Error listing sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    """Delete a session and all associated data."""
+    try:
+        # Delete from ChromaDB and MongoDB
+        success = embedding_store.delete_session(session_id)
+        
+        # Remove from document processors if it exists
+        if session_id in document_processors:
+            del document_processors[session_id]
+            
+        if success:
+            return {"status": "success", "message": f"Session {session_id} deleted"}
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete session {session_id}"
+            )
+    except Exception as e:
+        logger.error(f"Error deleting session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health")
+async def health_check():
+    """API health check endpoint."""
+    try:
+        # Check MongoDB connection
+        mongo_health = True
+        try:
+            mongo_db.db.command("ping")
+        except Exception as e:
+            logger.error(f"MongoDB health check failed: {e}")
+            mongo_health = False
+        
+        # Check ChromaDB directory access
+        chroma_health = os.access(settings.chroma_persist_dir, os.R_OK | os.W_OK)
+        
+        if mongo_health and chroma_health:
+            return {"status": "healthy"}
+        else:
+            return {
+                "status": "unhealthy", 
+                "details": {
+                    "mongodb": mongo_health,
+                    "chromadb": chroma_health
+                }
+            }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {"status": "unhealthy", "error": str(e)}
