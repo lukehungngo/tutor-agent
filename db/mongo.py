@@ -94,13 +94,44 @@ class MongoDB:
         result = self.db.questions.insert_many(question_data)
         return [str(id) for id in result.inserted_ids]
 
-    def get_question(self, question_id: str) -> Optional[Dict]:
-        """Get a question by ID."""
-        return self.db.questions.find_one({"_id": ObjectId(question_id)})
+    def get_question(self, question_id: str) -> Optional[Question]:
+        """Get a question by ID and convert to Question model.
+        
+        Args:
+            question_id: ID of the question to retrieve
+            
+        Returns:
+            Question model or None if not found
+        """
+        question_data = self.db.questions.find_one({"_id": ObjectId(question_id)})
+        if not question_data:
+            return None
+        
+        # Convert ObjectId to string for serialization
+        question_data["id"] = str(question_data.pop("_id"))
+        
+        # Create Question model from dictionary
+        return Question(**question_data)
 
-    def get_questions_by_document(self, document_id: str) -> List[Dict]:
-        """Get questions by document ID."""
-        return list(self.db.questions.find({"document_id": document_id}))
+    def get_questions_by_document(self, document_id: str) -> List[Question]:
+        """Get questions by document ID and convert to Question models.
+        
+        Args:
+            document_id: Document ID to filter questions by
+            
+        Returns:
+            List of Question models for the document
+        """
+        questions_data = list(self.db.questions.find({"document_id": document_id}))
+        
+        # Convert each question dictionary to a Question model
+        questions = []
+        for question_data in questions_data:
+            # Convert ObjectId to string for serialization
+            question_data["id"] = str(question_data.pop("_id"))
+            questions.append(Question(**question_data))
+        
+        return questions
 
     def save_answer(
         self,

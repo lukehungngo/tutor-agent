@@ -25,11 +25,11 @@ class BloomAbstractLevel(Enum):
 class Question:
     question: str
     bloom_level: BloomLevel
+    document_id: str = ""
     context: Optional[str] = None
     hint: Optional[str] = None
     answer: Optional[str] = None
-    document_id: Optional[str] = None
-    
+
     @staticmethod
     def from_dict(data: Dict) -> "Question":
         return Question(

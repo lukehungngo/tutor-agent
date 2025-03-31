@@ -266,6 +266,7 @@ async def generate_exam(request: ExamRequest):
         summary = processor.generate_brief_summary(chunks)
         logger.info(f"Summary: {summary}")
         
+        # TODO: add document_id to the questions
         result = await exam_generator.generate_exam(
             summary,
             [chunk.page_content for chunk in chunks],
@@ -305,8 +306,8 @@ async def evaluate_answer(request: EvaluateAnswerRequest):
             )
         
         # Evaluate the answer
-        context = question_data.get("context", "")
-        question_text = question_data.get("question", "")
+        context = question_data.context or ""
+        question_text = question_data.question
         evaluation = await answer_evaluator.evaluate_answer(
             context, 
             question_text, 
@@ -336,8 +337,8 @@ async def submit_answer(request: SubmitAnswerRequest):
             )
         
         # Evaluate the answer
-        context = question_data.get("context", "")
-        question_text = question_data.get("question", "")
+        context = question_data.context or ""
+        question_text = question_data.question
         evaluation = await answer_evaluator.evaluate_answer(
             context, 
             question_text, 
@@ -355,7 +356,7 @@ async def submit_answer(request: SubmitAnswerRequest):
         
         # Save the answer to MongoDB
         answer_id = mongo_db.save_answer(
-            document_id=request.document_id,
+            document_id=question_data.document_id,
             question_id=request.question_id,
             user_id=request.user_id,
             answer_text=request.answer,
