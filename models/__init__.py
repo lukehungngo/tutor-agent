@@ -1,4 +1,5 @@
 from .exam import BloomLevel, BloomAbstractLevel, Question
+from .document_info import DocumentInfo
 from .evaluator import CorrectnessLevel, EvaluationResult
 
 __all__ = [
@@ -7,4 +8,5 @@ __all__ = [
     "Question",
     "CorrectnessLevel",
     "EvaluationResult",
+    "DocumentInfo",
 ]

@@ -3,11 +3,11 @@ from fastapi import (
     UploadFile,
     File,
     HTTPException,
+    Form,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, List, Optional, Any
-import tempfile
+from typing import Optional
 import os
 import uuid
 from tempfile import NamedTemporaryFile
@@ -18,17 +18,21 @@ from core import (
     Gemma3AnswerEvaluator,
     AnswerEvaluator,
 )
-from models.exam import BloomAbstractLevel, Question
+from models import BloomAbstractLevel, Question, DocumentInfo
 from utils import async_time_execution, logger
 from db.mongo import MongoDB
 from db.chroma_embedding import ChromaEmbeddingStore
 from langchain.schema import Document
 from pathlib import Path
 from config.settings import settings
+from datetime import datetime, timezone
+import time
 
 app = FastAPI(title="AI Tutor Document Processor API")
 exam_generator = ExamGenerator(Gemma3QuestionGenerator())
 answer_evaluator = AnswerEvaluator(Gemma3AnswerEvaluator())
+
+# Initialize MongoDB
 mongo_db = MongoDB()
 
 # Initialize ChromaDB embedding store
@@ -57,7 +61,7 @@ class SessionInfo(BaseModel):
     session_id: str
     document_name: str
     chunk_count: int
-
+    document_id: str
 
 class ExamRequest(BaseModel):
     session_id: str
@@ -81,8 +85,13 @@ class SubmitAnswerRequest(BaseModel):
 
 @app.post("/upload", response_model=SessionInfo)
 @async_time_execution
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+):
     """Upload and process a document."""
+    start_time = time.time()
     try:
         # Create session ID
         session_id = str(uuid.uuid4())
@@ -110,10 +119,31 @@ async def upload_document(file: UploadFile = File(...)):
             # Clean up temporary file
             os.unlink(temp_path)
 
+            # Generate title from filename if not provided
+            doc_title = title
+            if not doc_title and file.filename:
+                # Extract filename without extension
+                doc_title = os.path.splitext(file.filename)[0]
+            
+            # Create document info object
+            doc_info = DocumentInfo(
+                title=doc_title or "Untitled Document",
+                filename=file.filename or "document",
+                session_id=session_id,
+                description=description,
+                file_size=len(content),
+                chunk_count=len(chunks),
+                created_at=datetime.now(timezone.utc),
+            )
+
+            # Save document info to MongoDB
+            document_id = mongo_db.save_document_info(doc_info)
+
             return SessionInfo(
                 session_id=session_id,
                 document_name=file.filename or "document",
                 chunk_count=len(chunks),
+                document_id=document_id,
             )
 
         except Exception as e:

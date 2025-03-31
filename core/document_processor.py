@@ -21,8 +21,7 @@ class DocumentProcessor:
     def __init__(self, 
                  chunk_size: int = 3000, 
                  chunk_overlap: int = 500,
-                 embedding_store: Optional[ChromaEmbeddingStore] = None,
-                 chroma_dir: Optional[str] = None):
+                 embedding_store: Optional[ChromaEmbeddingStore] = None):
         """
         Initialize the document processor.
 
@@ -38,7 +37,7 @@ class DocumentProcessor:
         
         # Use provided embedding store or create a new one
         self.embedding_store = embedding_store or ChromaEmbeddingStore(
-            persist_directory=chroma_dir or settings.chroma_persist_dir
+            persist_directory=settings.chroma_persist_dir
         )
         
         self.documents = []
