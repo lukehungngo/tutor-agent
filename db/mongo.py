@@ -104,6 +104,7 @@ class MongoDB:
 
     def save_answer(
         self,
+        document_id: str,
         question_id: str,
         user_id: str,
         answer_text: str,
@@ -112,6 +113,7 @@ class MongoDB:
     ) -> str:
         """Save a user's answer to a question."""
         answer_data = {
+            "document_id": document_id,
             "question_id": ObjectId(question_id),
             "user_id": user_id,
             "answer_text": answer_text,

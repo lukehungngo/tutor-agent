@@ -71,13 +71,11 @@ class ExamRequest(BaseModel):
 
 
 class EvaluateAnswerRequest(BaseModel):
-    session_id: str
     question_id: str
     answer: str
 
 
 class SubmitAnswerRequest(BaseModel):
-    session_id: str
     question_id: str
     user_id: str
     answer: str
@@ -357,6 +355,7 @@ async def submit_answer(request: SubmitAnswerRequest):
         
         # Save the answer to MongoDB
         answer_id = mongo_db.save_answer(
+            document_id=request.document_id,
             question_id=request.question_id,
             user_id=request.user_id,
             answer_text=request.answer,
