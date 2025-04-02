@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from utils import time_execution
-from pre_trained_model.config import GenerationConfig
+from core.pre_trained_model.config import GenerationConfig
 
 
 @dataclass

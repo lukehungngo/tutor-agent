@@ -21,7 +21,7 @@ def format_response(state: AgentState):
 
 def chatbot(state: AgentState):
     messages = state.get("messages", [])
-    response = settings.llm.invoke(messages)
+    response = settings.DEFAULT_LLM.invoke(messages)
     return {"messages": [response]}
 
 

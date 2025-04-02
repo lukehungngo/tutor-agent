@@ -38,7 +38,7 @@ Thought:{agent_scratchpad}
 tools = [tavily_tool, duckduckgo_tool]
 
 # Create the react agent
-agent = create_react_agent(settings.open_api_client, tools, prompt)
+agent = create_react_agent(settings.OPENAI_CLIENT, tools, prompt)
 # Create the executor with handle_parsing_errors enabled
 
 agent_executor = AgentExecutor(
@@ -74,7 +74,7 @@ class AgentState(TypedDict):
     structured_output: Optional[ResponseSchema]
 
 
-structured_llm = settings.open_api_client.with_structured_output(ResponseSchema)
+structured_llm = settings.OPENAI_CLIENT.with_structured_output(ResponseSchema)
 
 # response = structured_llm.invoke(result["output"])
 # print("Type of Structured Output Agent result: ", type(response))

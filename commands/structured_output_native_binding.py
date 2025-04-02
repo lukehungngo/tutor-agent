@@ -8,7 +8,7 @@ class ResponseSchema(BaseModel):
     sources: list[str]
 
 
-model = settings.llm
+model = settings.DEFAULT_LLM
 structured_llm = model.with_structured_output(ResponseSchema)
 
 response = structured_llm.invoke("Explain quantum entanglement")

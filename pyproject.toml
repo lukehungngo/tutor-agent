@@ -43,6 +43,9 @@ dependencies = [
     "accelerate>=0.26.0",
     "pymongo",
     "chromadb",
+    "bcrypt==4.0.1",
+    "pyjwt",
+    "passlib",
 ]
 
 [build-system]

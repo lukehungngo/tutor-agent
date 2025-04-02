@@ -12,16 +12,19 @@ from langchain_huggingface import HuggingFacePipeline
 from transformers import pipeline
 from utils import time_execution, logger
 import torch
-from db.chroma_embedding import ChromaEmbeddingStore
+from db import ChromaEmbeddingStore
 from config.settings import settings
+
 
 class DocumentProcessor:
     """Document processor with ChromaDB persistence for vector storage."""
 
-    def __init__(self, 
-                 chunk_size: int = 3000, 
-                 chunk_overlap: int = 500,
-                 embedding_store: Optional[ChromaEmbeddingStore] = None):
+    def __init__(
+        self,
+        chunk_size: int = 3000,
+        chunk_overlap: int = 500,
+        embedding_store: Optional[ChromaEmbeddingStore] = None,
+    ):
         """
         Initialize the document processor.
 
@@ -34,14 +37,14 @@ class DocumentProcessor:
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
-        
+
         # Use provided embedding store or create a new one
         self.embedding_store = embedding_store or ChromaEmbeddingStore(
-            persist_directory=settings.chroma_persist_dir
+            persist_directory=settings.CHROMA_PERSIST_DIR
         )
-        
+
         self.documents = []
-        self.session_id = None
+        self.document_id = None
 
     def __del__(self):
         """Clean up resources when the object is garbage collected."""
@@ -60,26 +63,27 @@ class DocumentProcessor:
 
             # Force garbage collection
             import gc
+
             gc.collect()
 
             logger.info("Cleaned up DocumentProcessor resources")
         except Exception as e:
             logger.error(f"Error during DocumentProcessor cleanup: {e}")
 
-    def load_document(self, file_path: str, session_id: Optional[str] = None):
+    def load_document(self, file_path: str, document_id: Optional[str] = None):
         """
-        Load a document from a file path and initialize a session.
+        Load a document from a file path.
 
         Args:
             file_path: Path to the document
-            session_id: Optional session ID, generated if not provided
+            document_id: Optional document ID, if available from DB
 
         Returns:
             List of document objects
         """
-        # Generate session ID if not provided
-        self.session_id = session_id or f"session_{os.path.basename(file_path)}_{id(self)}"
-        
+        # Store document_id if provided
+        self.document_id = document_id
+
         file_extension = os.path.splitext(file_path)[1].lower()
 
         try:
@@ -94,18 +98,20 @@ class DocumentProcessor:
                 loader = UnstructuredFileLoader(file_path)
 
             self.documents = loader.load()
-            
+
             # Add metadata about the source
             for i, doc in enumerate(self.documents):
-                if not hasattr(doc, 'metadata'):
+                if not hasattr(doc, "metadata"):
                     doc.metadata = {}
-                    
-                doc.metadata.update({
-                    "source": file_path,
-                    "filename": os.path.basename(file_path),
-                    "chunk_id": i,
-                })
-                
+
+                doc.metadata.update(
+                    {
+                        "source": file_path,
+                        "filename": os.path.basename(file_path),
+                        "chunk_id": i,
+                    }
+                )
+
             return self.documents
         except Exception as e:
             raise ValueError(f"Error loading document: {str(e)}")
@@ -124,14 +130,14 @@ class DocumentProcessor:
         """
         if not self.documents:
             raise ValueError("No documents loaded. Call load_document first.")
-        if not self.session_id:
-            raise ValueError("Session ID not set. Call load_document first.")
+        if not self.document_id:
+            raise ValueError("Document ID not set. Call load_document with document_id first.")
 
         chunks = self.process_documents()
-        
+
         # Store documents and create embeddings in the ChromaDB store
-        self.embedding_store.create_session(self.session_id, chunks)
-        logger.info(f"Created and persisted vector store for session {self.session_id}")
+        self.embedding_store.create_document_embeddings(self.document_id, chunks)
+        logger.info(f"Created and persisted vector store for document {self.document_id}")
 
     @time_execution
     def similarity_search(self, query: str, k: int = 4):
@@ -145,20 +151,17 @@ class DocumentProcessor:
         Returns:
             List of relevant document chunks
         """
-        if not self.session_id:
-            raise ValueError("Session ID not set. Call load_document first.")
+        if not self.document_id:
+            raise ValueError("Document ID not set. Call load_document with document_id first.")
+            
+        results = self.embedding_store.similarity_search(self.document_id, query, k=k)
 
-        results = self.embedding_store.similarity_search(self.session_id, query, k=k)
-        
         # Convert to Document objects
         documents = []
         for result in results:
-            doc = Document(
-                page_content=result["text"],
-                metadata=result["metadata"]
-            )
+            doc = Document(page_content=result["text"], metadata=result["metadata"])
             documents.append(doc)
-            
+
         return documents
 
     def get_document_chunks(self, from_page: int, to_page: int) -> List[Document]:
@@ -249,6 +252,7 @@ class DocumentProcessor:
 
                 # Use stuff chain for small documents
                 from langchain.chains.summarize import load_summarize_chain
+
                 map_reduce_chain = load_summarize_chain(
                     llm, chain_type="refine", verbose=True
                 )
@@ -273,6 +277,7 @@ class DocumentProcessor:
 
                 # Use map_reduce with custom prompts
                 from langchain.chains.summarize import load_summarize_chain
+
                 print("Using map_reduce chain with custom prompts")
                 summary_chain = load_summarize_chain(
                     llm, chain_type="map_reduce", verbose=True
@@ -287,6 +292,7 @@ class DocumentProcessor:
             # Fallback to extractive if abstractive fails
             print(f"Abstractive summarization failed: {e}")
             import traceback
+
             traceback.print_exc()
             return self._format_summary(summary_chunks)
 

@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional
 from utils import logger
-from pre_trained_model.google_gemma import Gemma3Model
+from core.pre_trained_model.google_gemma import Gemma3Model
 import torch
 from typing import Union, Any
 from models.exam import Question, BloomAbstractLevel

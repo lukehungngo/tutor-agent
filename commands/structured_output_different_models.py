@@ -10,8 +10,8 @@ class ResponseSchema(BaseModel):
     sources: list[str]
 
 
-open_api_model = settings.open_api_client
-google_client = settings.google_gemini_client
+open_api_model = settings.OPENAI_CLIENT
+google_client = settings.GOOGLE_GEMINI_CLIENT
 
 open_api_structured_llm = open_api_model.with_structured_output(
     ResponseSchema, method="function_calling"

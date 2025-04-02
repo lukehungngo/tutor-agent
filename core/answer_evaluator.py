@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional, Union, Any
 from utils import logger, time_execution
-from models.evaluator import CorrectnessLevel, EvaluationResult
-from pre_trained_model.google_gemma import Gemma3Model
+from models import CorrectnessLevel, EvaluationResult
+from core.pre_trained_model.google_gemma import Gemma3Model
 import torch
 
 EVALUATION_PROMPT = """Evaluate the the answer as a supportive tutor:
@@ -71,7 +71,10 @@ class Gemma3AnswerEvaluator:
 
     @time_execution
     async def evaluate_answer(
-        self, context: str, question: str, answer: str,
+        self,
+        context: str,
+        question: str,
+        answer: str,
     ) -> EvaluationResult:
         """
         Evaluate a student's answer with learning-focused feedback.
@@ -91,7 +94,7 @@ class Gemma3AnswerEvaluator:
                 question=question,
                 answer=answer,
             )
-            
+
             logger.info(f"Gemma3AnswerEvaluator Prompt: {prompt}")
 
             # Generate evaluation using the language model
@@ -113,7 +116,7 @@ class Gemma3AnswerEvaluator:
     def _default_error_evaluation(self) -> EvaluationResult:
         """
         Create a default evaluation result for error situations.
-        
+
         Returns:
             A default EvaluationResult object
         """

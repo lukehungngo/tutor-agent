@@ -11,7 +11,7 @@ class ResponseSchema(BaseModel):
     sources: list[str]
 
 
-model = settings.llm
+model = settings.DEFAULT_LLM
 parser = PydanticOutputParser(pydantic_object=ResponseSchema)
 prompt = ChatPromptTemplate.from_template(
     "Answer the question.\n{format_instructions}\nQuestion: {question}"
