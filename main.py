@@ -1,13 +1,18 @@
-from fastapi import FastAPI
-from api.routes import router
+from api import app
+import torch
+import warnings
+import os
+import uvicorn
 
-app = FastAPI()
+os.environ["MPS_GRAPH_CACHE_DEPTH"] = "2"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
-# Register API Routes
-app.include_router(router)
+print("MPS available:", torch.backends.mps.is_available())
+print("MPS built:", torch.backends.mps.is_built())
+print("Torch version:", torch.__version__)
 
-# Run API Server
+warnings.filterwarnings("ignore")
+
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

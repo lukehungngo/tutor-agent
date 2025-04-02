@@ -3,7 +3,7 @@ from config import settings
 from models.state import State
 
 # Initialize the math team
-math_team = MathTeam(settings.google_gemini_client)
+math_team = MathTeam(settings.GOOGLE_GEMINI_CLIENT)
 # user_input = "What is the square root of 16?"
 user_input = """Evaluate this expression: numexpr.evaluate("sin(45 * pi/180) + cos(30 * pi/180)")"""
 user_require_explanation = """Explain how to solve the following expression: numexpr.evaluate("sin(45 * pi/180) + cos(30 * pi/180)")"""

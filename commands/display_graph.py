@@ -7,7 +7,7 @@ from config import settings
 def main(*args):
     graph = StateManager().get_graph()
     generate_graph(graph)
-    top_supervisor = TopSupervisor(settings.google_gemini_client, [])
+    top_supervisor = TopSupervisor(settings.GOOGLE_GEMINI_CLIENT, [])
     generate_graph(top_supervisor)
 
 

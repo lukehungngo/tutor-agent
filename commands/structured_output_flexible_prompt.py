@@ -9,7 +9,7 @@ response_schemas = [
 ]
 
 output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
-model = settings.llm
+model = settings.DEFAULT_LLM
 prompt = ChatPromptTemplate.from_template(
     "Answer the question.\n{format_instructions}\nQuestion: {question}"
 ).partial(format_instructions=output_parser.get_format_instructions())

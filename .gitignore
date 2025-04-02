@@ -16,3 +16,7 @@ venv
 .idea/
 .venv/
 .vscode/
+embedding_cache/
+.embedding_cache/
+model_cache/
+.chroma_db/
