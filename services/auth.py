@@ -129,5 +129,4 @@ class AuthService:
                 detail="Not authenticated",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        assert user.id is not None, "User ID cannot be None"  # Assure the type checker
         return user

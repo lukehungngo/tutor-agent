@@ -35,13 +35,30 @@ class Question:
 
     @staticmethod
     def from_dict(data: Dict) -> "Question":
+        bloom_level_data = data.get("bloom_level", BloomLevel.REMEMBER.value)
+        
+        # If bloom_level is already a BloomLevel enum, use it directly
+        if isinstance(bloom_level_data, BloomLevel):
+            bloom_level = bloom_level_data
+        else:
+            # Otherwise, try to convert string to BloomLevel enum
+            try:
+                bloom_level = BloomLevel(bloom_level_data)
+            except (ValueError, TypeError):
+                # Default to REMEMBER if conversion fails
+                logger.warning(f"Invalid bloom_level value: {bloom_level_data}, defaulting to REMEMBER")
+                bloom_level = BloomLevel.REMEMBER
+                
         return Question(
             id=data.get("_id") or data.get("id"),
             user_id=data.get("user_id", None),
             question=data["question"],
-            bloom_level=BloomLevel(data["bloom_level"]),
+            bloom_level=bloom_level,
             hint=data.get("hint"),
             answer=data.get("answer"),
+            document_id=data.get("document_id", ""),
+            context=data.get("context"),
+            created_at=data.get("created_at"),
         )
 
     def as_dict(self) -> Dict:

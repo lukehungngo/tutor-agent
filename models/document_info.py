@@ -11,6 +11,7 @@ class DocumentInfo:
     user_id: Optional[str] = None
     title: str = "Untitled Document"
     filename: str = "unknown"
+    summary: Optional[str] = None
     author: Optional[str] = None
     description: Optional[str] = None
     tags: List[str] = field(default_factory=list)
@@ -26,6 +27,7 @@ class DocumentInfo:
             user_id=data.get("user_id", None),
             title=data.get("title", "Untitled Document"),
             filename=data.get("filename", "unknown"),
+            summary=data.get("summary", None),
             author=data.get("author"),
             description=data.get("description"),
             tags=data.get("tags", []),
@@ -40,6 +42,7 @@ class DocumentInfo:
             "id": self.id,
             "title": self.title,
             "filename": self.filename,
+            "summary": self.summary,
             "author": self.author,
             "description": self.description,
             "tags": self.tags,

@@ -121,13 +121,16 @@ async def upload_document(
             
             # Update document info with chunk count
             doc_info.chunk_count = len(chunks)
-            # Update in DB
-            exam_repository.update_document_info(document_id, {"chunk_count": len(chunks)})
             
             processor.create_vector_store()
 
             # Store processor for later use
             document_processors[document_id] = processor
+
+            summary = processor.generate_brief_summary(chunks[:5])
+
+            # Update in DB
+            exam_repository.update_document_info(document_id, {"chunk_count": len(chunks), "summary": summary})
 
             # Clean up temporary file
             os.unlink(temp_path)
@@ -383,6 +386,8 @@ async def submit_answer(
             answer_text=request.answer,
             score=score,
             feedback=str(evaluation.as_dict()),
+            improvement_suggestions=evaluation.improvement_suggestions,
+            encouragement=evaluation.encouragement,
         )
 
         # Return the evaluation with the saved answer ID
@@ -444,4 +449,58 @@ async def get_user_documents(user: User = Depends(auth_service.require_auth)):
         return {"documents": [doc.to_dict() for doc in documents]}
     except Exception as e:
         logger.error(f"Error retrieving user documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/documents/{document_id}/questions")
+async def get_questions_for_document(
+    document_id: str, user: User = Depends(auth_service.require_auth)
+):
+    """Get all questions for a specific document."""
+    try:
+        assert user.id is not None, "User ID cannot be None"
+        questions = exam_repository.get_questions_by_document(document_id)
+        # Enhance questions with user answers if they exist
+        user_answers = exam_repository.get_user_answers_by_document(document_id, user.id)
+        enhanced_questions = []
+        for question in questions:
+            question_dict = question.as_dict()
+            # Try to get user's answer for this question if it exists
+            user_answer = next((answer for answer in user_answers if answer["question_id"] == question.id), None)
+            if user_answer:
+                question_dict["user_answer"] = {
+                    "answer_text": user_answer.get("answer_text"),
+                    "score": user_answer.get("score"),
+                    "feedback": user_answer.get("feedback"),
+                    "created_at": user_answer.get("created_at")
+                }
+            enhanced_questions.append(question_dict)
+        
+        return enhanced_questions
+    except Exception as e:
+        logger.error(f"Error retrieving questions for document {document_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/documents/{document_id}/questions/{question_id}")
+async def get_question_by_id(
+    document_id: str, question_id: str, user: User = Depends(auth_service.require_auth)
+):
+    """Get a question by ID."""
+    try:
+        assert user.id is not None, "User ID cannot be None"
+        question = exam_repository.get_question(question_id)
+        if not question:
+            raise HTTPException(status_code=404, detail=f"Question {question_id} not found")
+        question_dict = question.as_dict()
+        # Enhance question with user answer if it exists
+        user_answer = exam_repository.get_user_answer_by_question_id(question_id, user.id)
+        if user_answer:
+            question_dict["user_answer"] = {
+                "answer_text": user_answer.get("answer_text"),
+                "score": user_answer.get("score"),
+                "feedback": user_answer.get("feedback"),
+                "created_at": user_answer.get("created_at")
+            }
+        return question_dict
+    except Exception as e:
+        logger.error(f"Error retrieving question by ID: {e}")
         raise HTTPException(status_code=500, detail=str(e))

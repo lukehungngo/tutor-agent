@@ -2,7 +2,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
-from models.exam import Question
+from models.exam import Question, BloomLevel
 from models.document_info import DocumentInfo
 from config.settings import settings
 
@@ -127,9 +127,9 @@ class ExamRepository:
 
         # Convert ObjectId to string for serialization
         question_data["id"] = str(question_data.pop("_id"))
-
-        # Create Question model from dictionary
-        return Question(**question_data)
+        
+        # Create Question model from dictionary using from_dict
+        return Question.from_dict(question_data)
 
     def get_questions_by_document(self, document_id: str) -> List[Question]:
         """Get questions by document ID and convert to Question models.
@@ -147,7 +147,8 @@ class ExamRepository:
         for question_data in questions_data:
             # Convert ObjectId to string for serialization
             question_data["id"] = str(question_data.pop("_id"))
-            questions.append(Question(**question_data))
+            # Create Question model using from_dict
+            questions.append(Question.from_dict(question_data))
 
         return questions
 
@@ -159,6 +160,8 @@ class ExamRepository:
         answer_text: str,
         score: Optional[float] = None,
         feedback: Optional[str] = None,
+        improvement_suggestions: Optional[List[str]] = None,
+        encouragement: Optional[str] = None,
     ) -> str:
         """Save a user's answer to a question."""
         answer_data = {
@@ -168,6 +171,8 @@ class ExamRepository:
             "answer_text": answer_text,
             "score": score,
             "feedback": feedback,
+            "improvement_suggestions": improvement_suggestions,
+            "encouragement": encouragement,
             "created_at": datetime.now(timezone.utc),
         }
 
@@ -193,3 +198,41 @@ class ExamRepository:
             {"$set": update_fields}
         )
         return result.modified_count > 0
+    
+    def get_user_answers_by_document(self, document_id: str, user_id: str) -> List[Dict]:
+        """Get all answers submitted by a user for a specific document.
+        
+        Args:
+            document_id: The ID of the document
+            user_id: The ID of the user
+            
+        Returns:
+            List of user answers for the document
+        """
+        try:
+            answers = self.db.user_answers.find({
+                "document_id": ObjectId(document_id),
+                "user_id": ObjectId(user_id)
+            })
+            
+            result = []
+            for answer in answers:
+                # Convert ObjectId to string for serialization
+                answer["id"] = str(answer.pop("_id"))
+                answer["document_id"] = str(answer["document_id"])
+                answer["question_id"] = str(answer["question_id"])
+                answer["user_id"] = str(answer["user_id"])
+                result.append(answer)
+                
+            return result
+        except Exception as e:
+            # Log the error and return empty list instead of propagating the error
+            print(f"Error retrieving answers for document {document_id}: {str(e)}")
+            return []
+    
+    def get_user_answer_by_question_id(self, question_id: str, user_id: str) -> Optional[Dict]:
+        """Get a user answer by question ID and user ID."""
+        return self.db.user_answers.find_one({
+            "question_id": ObjectId(question_id),
+            "user_id": ObjectId(user_id)
+        })
