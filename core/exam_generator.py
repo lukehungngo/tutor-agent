@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional
 from utils import logger
-from core.pre_trained_model.google_gemma import Gemma3Model
+from core.pre_trained_model import GoogleGeminiAPI, Gemma3Model
 import torch
 from typing import Union, Any
 from models.exam import Question, BloomAbstractLevel
@@ -120,12 +120,13 @@ BLOOM_QUESTION_GENERATION_ADVANCED_SCHEMA = {
 class Gemma3QuestionGenerator:
     def __init__(self, llm: Optional[Gemma3Model] = None):
         if llm is None:
-            self.llm = Gemma3Model(
-                model_name="google/gemma-3-1b-it",
-                device="mps",
-                torch_dtype=torch.float16,
-                temperature=0.1,  # Very low temperature for predictable JSON
-            )
+            # self.llm = Gemma3Model(
+            #     model_name="google/gemma-3-1b-it",
+            #     device="mps",
+            #     torch_dtype=torch.float16,
+            #     temperature=0.1,  # Very low temperature for predictable JSON
+            # )
+            self.llm = GoogleGeminiAPI()
         else:
             self.llm = llm
         self.prompt_template = None
@@ -150,6 +151,7 @@ class Gemma3QuestionGenerator:
         summary_context: str,
         combined_context: str,
         bloom_level: Optional[BloomAbstractLevel] = None,
+        temperature: float = 0.3,
     ) -> List[Question]:
         if bloom_level is None:
             bloom_level = BloomAbstractLevel.BASIC
@@ -162,7 +164,7 @@ class Gemma3QuestionGenerator:
         schema = self._get_schema_for_level(bloom_level)
         logger.info(f"Using schema for level: {bloom_level.value}")
 
-        response = self.llm.generate(prompt, schema=schema)
+        response = self.llm.generate(prompt, schema=schema, temperature=temperature)
         logger.info(f"Gemma3QuestionGenerator Response: {response}")
 
         # Type assertion to ensure response is a dictionary
@@ -204,13 +206,14 @@ class ExamGenerator:
         summary_context: str,
         chunks: List[str],
         bloom_level: Optional[BloomAbstractLevel] = None,
+        temperature: float = 0.3,
     ) -> List[Question]:
         """Generate an exam with specified number of questions per Bloom's level."""
         # Use existing chunks for context
         combined_context = "\n\n".join(chunks)
 
         questions = await self.llm.generate_question(
-            summary_context, combined_context, bloom_level
+            summary_context, combined_context, bloom_level, temperature
         )
         logger.info(f"Questions: {questions}")
         return questions

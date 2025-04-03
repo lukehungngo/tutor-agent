@@ -6,6 +6,7 @@ from enum import Enum
 from utils import logger
 from datetime import datetime
 
+
 class BloomLevel(Enum):
     REMEMBER = "remember"
     UNDERSTAND = "understand"
@@ -19,6 +20,39 @@ class BloomAbstractLevel(Enum):
     BASIC = "basic"
     INTERMEDIATE = "intermediate"
     ADVANCED = "advanced"
+
+
+def get_bloom_level_abstract(bloom_level: str) -> BloomAbstractLevel:
+    if (
+        bloom_level == BloomLevel.REMEMBER.value
+        or bloom_level == BloomLevel.UNDERSTAND.value
+    ):
+        return BloomAbstractLevel.BASIC
+    elif (
+        bloom_level == BloomLevel.APPLY.value or bloom_level == BloomLevel.ANALYZE.value
+    ):
+        return BloomAbstractLevel.INTERMEDIATE
+    elif (
+        bloom_level == BloomLevel.EVALUATE.value
+        or bloom_level == BloomLevel.CREATE.value
+    ):
+        return BloomAbstractLevel.ADVANCED
+    else:
+        raise ValueError(f"Invalid bloom level: {bloom_level}")
+
+
+def get_temperature_from_bloom_level(bloom_level: str) -> float:
+    if (
+        bloom_level == BloomLevel.REMEMBER.value
+        or bloom_level == BloomLevel.UNDERSTAND.value
+    ):
+        return 0.1
+    elif (
+        bloom_level == BloomLevel.APPLY.value or bloom_level == BloomLevel.ANALYZE.value
+    ):
+        return 0.2
+    else:
+        return 0.3
 
 
 @dataclass
@@ -36,7 +70,7 @@ class Question:
     @staticmethod
     def from_dict(data: Dict) -> "Question":
         bloom_level_data = data.get("bloom_level", BloomLevel.REMEMBER.value)
-        
+
         # If bloom_level is already a BloomLevel enum, use it directly
         if isinstance(bloom_level_data, BloomLevel):
             bloom_level = bloom_level_data
@@ -46,9 +80,11 @@ class Question:
                 bloom_level = BloomLevel(bloom_level_data)
             except (ValueError, TypeError):
                 # Default to REMEMBER if conversion fails
-                logger.warning(f"Invalid bloom_level value: {bloom_level_data}, defaulting to REMEMBER")
+                logger.warning(
+                    f"Invalid bloom_level value: {bloom_level_data}, defaulting to REMEMBER"
+                )
                 bloom_level = BloomLevel.REMEMBER
-                
+
         return Question(
             id=data.get("_id") or data.get("id"),
             user_id=data.get("user_id", None),
@@ -99,7 +135,6 @@ class Question:
         return questions
 
 
-
 class CorrectnessLevel(Enum):
     """Enum representing the correctness level of an answer."""
 
@@ -113,6 +148,7 @@ class EvaluationResult:
     """Data class for storing the result of an answer evaluation."""
 
     correctness_level: CorrectnessLevel
+    score: int
     accurate_parts: List[str]
     improvement_suggestions: List[str]
     encouragement: str
@@ -138,6 +174,7 @@ class EvaluationResult:
 
         return EvaluationResult(
             correctness_level=correctness_level,
+            score=data.get("score", 0),
             accurate_parts=data.get("accurate_parts", []),
             improvement_suggestions=data.get("improvement_suggestions", []),
             encouragement=data.get("encouragement", "Good effort!"),
@@ -153,6 +190,7 @@ class EvaluationResult:
         """
         return {
             "correctness_level": self.correctness_level.value,
+            "score": self.score,
             "accurate_parts": self.accurate_parts,
             "improvement_suggestions": self.improvement_suggestions,
             "encouragement": self.encouragement,
@@ -177,6 +215,7 @@ class EvaluationResult:
             # Return a default evaluation in case of error
             return EvaluationResult(
                 correctness_level=CorrectnessLevel.PARTIALLY_CORRECT,
+                score=0,
                 accurate_parts=[],
                 improvement_suggestions=["Please try again"],
                 encouragement="Thank you for your submission.",

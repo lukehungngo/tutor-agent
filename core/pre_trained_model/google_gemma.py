@@ -147,8 +147,14 @@ class Gemma3Model:
         formatted_prompt = (
             f"{prompt}\n\n"
             f"RESPONSE FORMAT:\n{schema_str}\n\n"
-            f"IMPORTANT: Your entire response must be valid JSON starting with '{{' and ending with '}}'. "
-            f"Do not include any text before or after the JSON object."
+            f"IMPORTANT GUIDELINES:\n"
+            f"1. Your entire response must be valid JSON starting with '{{' and ending with '}}'.\n"
+            f"2. Do not include any text before or after the JSON object.\n"
+            f"3. When evaluating answers, be critical and objective:\n"
+            f"   - For nonsensical text, gibberish or random characters, ALWAYS use 'incorrect' with score 0\n"
+            f"   - Only mark as 'correct' if the answer demonstrates clear understanding\n"
+            f"   - Use 'partially_correct' for answers with some valid content but significant gaps\n"
+            f"4. Match the schema exactly - use the keys and value types shown in the example.\n"
         )
 
         return formatted_prompt

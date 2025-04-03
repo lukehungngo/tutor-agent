@@ -1,36 +1,66 @@
 from typing import List, Dict, Optional, Union, Any
 from utils import logger, time_execution
-from models import CorrectnessLevel, EvaluationResult
+from models import CorrectnessLevel, EvaluationResult, BloomAbstractLevel
 from core.pre_trained_model.google_gemma import Gemma3Model
-import torch
+from core.pre_trained_model.google_gemini_api import GoogleGeminiAPI
 
-EVALUATION_PROMPT = """Evaluate the the answer as a supportive tutor:
+EVALUATION_PROMPT = """
+Evaluate the student's answer using both the provided context and your general knowledge of the subject.
 
-QUESTION CONTEXT:
-{context}
+QUESTION CONTEXT: {context}
+QUESTION: {question}
+STUDENT ANSWER: {answer}
 
-QUESTION:
-{question}
+EVALUATION INSTRUCTIONS:
+1. First assess answer evaluability:
+   - If irrelevant/nonsensical: mark "incorrect" with score=0
 
-ANSWER:
-{answer}
+2. For meaningful answers, evaluate using:
+   - Context-specific accuracy: Does it match information from the provided context?
+   - General subject knowledge: Is it accurate according to broader domain knowledge?
+   - Completeness: Are all key elements addressed?
 
-As a supportive tutor, provide learning-focused feedback that:
-1. Clearly identifies if the answer is correct, or partially correct, or incorrect
-2. Lists specific accurate parts of the answer
-3. Offers concrete suggestions for improvement
-4. Provides encouraging feedback that acknowledges effort
-5. Suggests next steps for continued learning
+   Correctness:
+   - "correct": Accurate per context AND general knowledge, with all key elements
+   - "partially_correct": Some accuracy but with gaps or minor errors
+   - "incorrect": Major errors or misunderstandings
+
+   Quality Score (0-100):
+   - 90-100: Exceptional - comprehensive, precise, shows deep understanding
+   - 70-89: Good - accurate but missing some details or nuance
+   - 50-69: Basic - contains core concepts but lacks depth or precision
+   - 20-49: Limited - has some relevant elements but significant gaps
+   - 1-19: Minimal - barely addresses the question
+   - 0: Irrelevant or nonsensical
+
+   Constraints:
+   - Brief answers: Maximum score of 70
+   - Scores above 90 require exceptional clarity and comprehensive coverage
+
+3. Score-correctness alignment:
+   - Score 0: Must be "incorrect"
+   - Scores 1-49: Must be "incorrect" or "partially_correct"
+   - Scores 50-79: Can be any correctness level based on accuracy
+   - Scores 80-100: Must be "partially_correct" or "correct"
+
+4. IMPORTANT VALIDATION:
+   - If feedback mentions correct elements, correctness_level CANNOT be "incorrect" with score 0
+   - If score is 0, next_steps and encouragement should indicate complete rework needed
+   - Always check consistency between your assessment and the final scoring
 
 FORMAT YOUR RESPONSE AS A JSON OBJECT WITH THE EXACT STRUCTURE SHOWN IN THE SCHEMA.
 """
 
+
 EVALUATION_SCHEMA = {
-    "correctness_level": ["correct", "partially_correct", "incorrect"],
-    "accurate_parts": ["Accurate part example"],
-    "improvement_suggestions": ["Suggestion example"],
-    "encouragement": "Encouragement example",
-    "next_steps": "Next steps example",
+    "correctness_level": "correct|partially_correct|incorrect",
+    "score": 0,
+    "accurate_parts": [
+        "Identify specific correct elements in the answer based on the context (if any)"
+    ],
+    "improvement_suggestions": ["Suggest how to improve the answer"],
+    "encouragement": "Provide encouraging feedback appropriate to the quality of the answer",
+    "next_steps": "Suggest specific next steps for learning",
 }
 
 
@@ -45,12 +75,7 @@ class Gemma3AnswerEvaluator:
             llm: The language model to use for evaluation, or None to create a new one
         """
         if llm is None:
-            self.llm = Gemma3Model(
-                model_name="google/gemma-3-1b-it",
-                device="mps",
-                torch_dtype=torch.float16,
-                temperature=0.2,  # Very low temperature for predictable JSON
-            )
+            self.llm = GoogleGeminiAPI()
         else:
             self.llm = llm
 
@@ -75,6 +100,7 @@ class Gemma3AnswerEvaluator:
         context: str,
         question: str,
         answer: str,
+        temperature: float = 0.2,
     ) -> EvaluationResult:
         """
         Evaluate a student's answer with learning-focused feedback.
@@ -98,9 +124,10 @@ class Gemma3AnswerEvaluator:
             logger.info(f"Gemma3AnswerEvaluator Prompt: {prompt}")
 
             # Generate evaluation using the language model
-            response = self.llm.generate(prompt, schema=EVALUATION_SCHEMA)
-            logger.info(f"Gemma3AnswerEvaluator Response: {response}")
-
+            response = self.llm.generate(
+                prompt, schema=EVALUATION_SCHEMA, temperature=temperature
+            )
+            print(f"Gemma3AnswerEvaluator Response: {response}")
             # Type assertion to ensure response is a dictionary
             if not isinstance(response, Dict):
                 logger.error(f"Expected dictionary response, got {type(response)}")
@@ -111,7 +138,7 @@ class Gemma3AnswerEvaluator:
 
         except Exception as e:
             logger.error(f"Error during answer evaluation: {e}")
-            return self._default_error_evaluation()
+            raise e
 
     def _default_error_evaluation(self) -> EvaluationResult:
         """
@@ -122,6 +149,7 @@ class Gemma3AnswerEvaluator:
         """
         return EvaluationResult(
             correctness_level=CorrectnessLevel.PARTIALLY_CORRECT,
+            score=0,
             accurate_parts=[],
             improvement_suggestions=["Please try submitting your answer again"],
             encouragement="Thank you for your patience.",
@@ -142,7 +170,7 @@ class AnswerEvaluator:
         self.llm = llm
 
     async def evaluate_answer(
-        self, context: str, question: str, student_answer: str
+        self, context: str, question: str, student_answer: str, temperature: float = 0.2
     ) -> EvaluationResult:
         """
         Evaluate a student's answer using the configured evaluator.
@@ -154,4 +182,4 @@ class AnswerEvaluator:
         Returns:
             An EvaluationResult object containing the evaluation details
         """
-        return await self.llm.evaluate_answer(context, question, student_answer)
+        return await self.llm.evaluate_answer(context, question, student_answer, temperature=temperature)

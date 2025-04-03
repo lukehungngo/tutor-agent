@@ -14,6 +14,7 @@ class User(BaseModel):
         # Allow MongoDB ObjectID conversion
         arbitrary_types_allowed = True
 
+
 class UserInDB(User):
     """User model with password hash."""
 

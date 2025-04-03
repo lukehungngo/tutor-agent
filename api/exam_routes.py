@@ -19,7 +19,7 @@ from core import (
     Gemma3AnswerEvaluator,
     AnswerEvaluator,
 )
-from models import BloomAbstractLevel, DocumentInfo, User
+from models import BloomAbstractLevel, DocumentInfo, User, get_temperature_from_bloom_level
 from utils import async_time_execution, logger
 from db import ExamRepository, ChromaEmbeddingStore
 from langchain.schema import Document
@@ -28,7 +28,7 @@ from config.settings import settings
 from datetime import datetime, timezone
 import time
 from services import auth_service
-
+import json
 
 router = APIRouter(prefix="/exam", tags=["exam"])
 
@@ -284,14 +284,16 @@ async def generate_exam(
 
         processor = document_processors[request.document_id]
         chunks = processor.get_document_chunks(request.from_chunk, request.to_chunk)
-        summary = processor.generate_brief_summary(chunks)
-        logger.info(f"Summary: {summary}")
+        # summary = processor.generate_brief_summary(chunks)
+        # logger.info(f"Summary: {summary}")
+        summary = "\n\n".join([chunk.page_content for chunk in chunks])
 
         # Generate exam questions
         result = await exam_generator.generate_exam(
             summary,
             [chunk.page_content for chunk in chunks],
             bloom_level=request.bloom_level,
+            temperature=0.3,
         )
         
         # Set document_id for each question
@@ -334,8 +336,9 @@ async def evaluate_answer(
         # Evaluate the answer
         context = question_data.context or ""
         question_text = question_data.question
+        temperature = get_temperature_from_bloom_level(question_data.bloom_level.value)
         evaluation = await answer_evaluator.evaluate_answer(
-            context, question_text, request.answer
+            context, question_text, request.answer, temperature
         )
 
         # Return evaluation results
@@ -365,18 +368,10 @@ async def submit_answer(
         # Evaluate the answer
         context = question_data.context or ""
         question_text = question_data.question
+        temperature = get_temperature_from_bloom_level(question_data.bloom_level.value)
         evaluation = await answer_evaluator.evaluate_answer(
-            context, question_text, request.answer
+            context, question_text, request.answer, temperature
         )
-
-        # Calculate score based on correctness level
-        score = None
-        if evaluation.correctness_level.value == "correct":
-            score = 100
-        elif evaluation.correctness_level.value == "partially_correct":
-            score = 50
-        elif evaluation.correctness_level.value == "incorrect":
-            score = 0
 
         # Save the answer to MongoDB using the authenticated user's ID
         answer_id = exam_repository.save_answer(
@@ -384,8 +379,9 @@ async def submit_answer(
             question_id=request.question_id,
             user_id=user.id,  # Now the type checker knows this is not None
             answer_text=request.answer,
-            score=score,
-            feedback=str(evaluation.as_dict()),
+            correctness_level=evaluation.correctness_level.value,
+            score=evaluation.score,
+            feedback=json.dumps(evaluation.as_dict()),
             improvement_suggestions=evaluation.improvement_suggestions,
             encouragement=evaluation.encouragement,
         )
@@ -393,7 +389,6 @@ async def submit_answer(
         # Return the evaluation with the saved answer ID
         result = evaluation.as_dict()
         result["answer_id"] = answer_id
-        result["score"] = score
 
         return result
     except HTTPException:
@@ -451,34 +446,56 @@ async def get_user_documents(user: User = Depends(auth_service.require_auth)):
         logger.error(f"Error retrieving user documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/documents/{document_id}")
+async def get_document_by_id(
+    document_id: str, user: User = Depends(auth_service.require_auth)
+):
+    """Get a document by ID."""
+    try:
+        document = exam_repository.get_document_info(document_id)
+        if not document:
+            raise HTTPException(status_code=404, detail=f"Document {document_id} not found")
+        document_dict = document.to_dict()
+        document_dict["questions"] = get_questions_by_document(document_id, user)
+        return document_dict
+    except Exception as e:
+        logger.error(f"Error retrieving document by ID: {e}")
+
+
 @router.get("/documents/{document_id}/questions")
 async def get_questions_for_document(
     document_id: str, user: User = Depends(auth_service.require_auth)
 ):
     """Get all questions for a specific document."""
     try:
-        assert user.id is not None, "User ID cannot be None"
-        questions = exam_repository.get_questions_by_document(document_id)
-        # Enhance questions with user answers if they exist
-        user_answers = exam_repository.get_user_answers_by_document(document_id, user.id)
-        enhanced_questions = []
-        for question in questions:
-            question_dict = question.as_dict()
-            # Try to get user's answer for this question if it exists
-            user_answer = next((answer for answer in user_answers if answer["question_id"] == question.id), None)
-            if user_answer:
-                question_dict["user_answer"] = {
-                    "answer_text": user_answer.get("answer_text"),
-                    "score": user_answer.get("score"),
-                    "feedback": user_answer.get("feedback"),
-                    "created_at": user_answer.get("created_at")
-                }
-            enhanced_questions.append(question_dict)
-        
-        return enhanced_questions
+        return get_questions_by_document(document_id, user)
     except Exception as e:
         logger.error(f"Error retrieving questions for document {document_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def get_questions_by_document(document_id: str, user: User):
+    assert user.id is not None, "User ID cannot be None"
+    questions = exam_repository.get_questions_by_document(document_id)
+    # Enhance questions with user answers if they exist
+    user_answers = exam_repository.get_user_answers_by_document(document_id, user.id)
+    enhanced_questions = []
+    for question in questions:
+        question_dict = question.as_dict()
+        # Try to get user's answer for this question if it exists
+        user_answer = next((answer for answer in user_answers if answer["question_id"] == question.id), None)
+        if user_answer:
+            question_dict["user_answer"] = {
+                "answer_text": user_answer.get("answer_text"),
+                "correctness_level": user_answer.get("correctness_level"),
+                "score": user_answer.get("score"),
+                "feedback": json.loads(user_answer.get("feedback", {})),
+                "improvement_suggestions": user_answer.get("improvement_suggestions"),
+                "encouragement": user_answer.get("encouragement"),
+                "created_at": user_answer.get("created_at")
+            }
+        enhanced_questions.append(question_dict)
+    
+    return enhanced_questions
 
 @router.get("/documents/{document_id}/questions/{question_id}")
 async def get_question_by_id(
@@ -496,8 +513,11 @@ async def get_question_by_id(
         if user_answer:
             question_dict["user_answer"] = {
                 "answer_text": user_answer.get("answer_text"),
+                "correctness_level": user_answer.get("correctness_level"),
                 "score": user_answer.get("score"),
-                "feedback": user_answer.get("feedback"),
+                "feedback": json.loads(user_answer.get("feedback", {})),
+                "improvement_suggestions": user_answer.get("improvement_suggestions"),
+                "encouragement": user_answer.get("encouragement"),
                 "created_at": user_answer.get("created_at")
             }
         return question_dict

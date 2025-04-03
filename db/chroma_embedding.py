@@ -51,7 +51,9 @@ class ChromaEmbeddingStore:
         return f"document_{document_id}"
 
     @time_execution
-    def create_document_embeddings(self, document_id: str, documents: List[Document]) -> List[str]:
+    def create_document_embeddings(
+        self, document_id: str, documents: List[Document]
+    ) -> List[str]:
         """Create embeddings for a document and save them.
 
         Args:
@@ -156,7 +158,9 @@ class ChromaEmbeddingStore:
             logger.info(f"Loaded document embeddings {document_id} from ChromaDB")
             return True
         except Exception as e:
-            logger.error(f"Error loading document embeddings {document_id} from ChromaDB: {e}")
+            logger.error(
+                f"Error loading document embeddings {document_id} from ChromaDB: {e}"
+            )
             return False
 
     @time_execution

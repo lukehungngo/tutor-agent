@@ -26,7 +26,7 @@ class ExamRepository:
             "chunk_count": doc_info.chunk_count,
             "created_at": datetime.now(timezone.utc),
         }
-        
+
         # Add user_id if present
         if doc_info.user_id:
             doc_dict["user_id"] = ObjectId(doc_info.user_id)
@@ -49,15 +49,17 @@ class ExamRepository:
 
     def get_documents_by_user(self, user_id: str) -> List[DocumentInfo]:
         """Get all documents owned by a user.
-        
+
         Args:
             user_id: User ID to filter documents by
-            
+
         Returns:
             List of DocumentInfo objects for the user
         """
-        documents_data = list(self.db.document_info.find({"user_id": ObjectId(user_id)}))
-        
+        documents_data = list(
+            self.db.document_info.find({"user_id": ObjectId(user_id)})
+        )
+
         # Convert each document dictionary to a DocumentInfo model
         documents = []
         for doc_data in documents_data:
@@ -66,7 +68,7 @@ class ExamRepository:
             if "user_id" in doc_data and isinstance(doc_data["user_id"], ObjectId):
                 doc_data["user_id"] = str(doc_data["user_id"])
             documents.append(DocumentInfo.from_dict(doc_data))
-            
+
         return documents
 
     def delete_document_info(self, doc_id: str) -> bool:
@@ -89,7 +91,9 @@ class ExamRepository:
         result = self.db.questions.insert_one(question_data)
         return str(result.inserted_id)
 
-    def save_questions(self, questions: List[Question], user_id: Optional[str] = None) -> List[str]:
+    def save_questions(
+        self, questions: List[Question], user_id: Optional[str] = None
+    ) -> List[str]:
         """Save multiple questions to the database."""
         question_data = []
         for question in questions:
@@ -127,7 +131,7 @@ class ExamRepository:
 
         # Convert ObjectId to string for serialization
         question_data["id"] = str(question_data.pop("_id"))
-        
+
         # Create Question model from dictionary using from_dict
         return Question.from_dict(question_data)
 
@@ -138,9 +142,11 @@ class ExamRepository:
             document_id: Document ID to filter questions by
 
         Returns:
-            List of Question models for the document
+            List of Question models for the document, sorted by ID in descending order
         """
-        questions_data = list(self.db.questions.find({"document_id": document_id}))
+        questions_data = list(
+            self.db.questions.find({"document_id": document_id}).sort("_id", -1)
+        )
 
         # Convert each question dictionary to a Question model
         questions = []
@@ -158,26 +164,58 @@ class ExamRepository:
         question_id: str,
         user_id: str,
         answer_text: str,
+        correctness_level: str,
         score: Optional[float] = None,
         feedback: Optional[str] = None,
         improvement_suggestions: Optional[List[str]] = None,
         encouragement: Optional[str] = None,
     ) -> str:
-        """Save a user's answer to a question."""
+        """Save a user's answer to a question.
+
+        If an answer already exists for the same document, question, and user,
+        it will be updated instead of creating a new one.
+
+        Returns:
+            The ID of the inserted or updated answer
+        """
         answer_data = {
             "document_id": ObjectId(document_id),
             "question_id": ObjectId(question_id),
             "user_id": ObjectId(user_id),
             "answer_text": answer_text,
+            "correctness_level": correctness_level,
             "score": score,
             "feedback": feedback,
             "improvement_suggestions": improvement_suggestions,
             "encouragement": encouragement,
-            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
         }
 
-        result = self.db.user_answers.insert_one(answer_data)
-        return str(result.inserted_id)
+        # Define the filter to find existing answer
+        filter_query = {
+            "document_id": ObjectId(document_id),
+            "question_id": ObjectId(question_id),
+            "user_id": ObjectId(user_id),
+        }
+
+        # Set created_at only for new documents
+        update_data = {
+            "$set": answer_data,
+            "$setOnInsert": {"created_at": datetime.now(timezone.utc)},
+        }
+
+        # Perform upsert operation
+        result = self.db.user_answers.update_one(filter_query, update_data, upsert=True)
+
+        # If upserted, get the new ID, otherwise find the existing document to get its ID
+        if result.upserted_id:
+            return str(result.upserted_id)
+        else:
+            existing_answer = self.db.user_answers.find_one(filter_query)
+            if existing_answer:
+                return str(existing_answer["_id"])
+            else:
+                raise ValueError("No answer found after upsert operation")
 
     def get_answer_by_id(self, answer_id: str) -> Optional[Dict]:
         """Get a user answer by ID."""
@@ -185,36 +223,36 @@ class ExamRepository:
 
     def update_document_info(self, doc_id: str, update_fields: Dict) -> bool:
         """Update document information fields.
-        
+
         Args:
             doc_id: Document ID to update
             update_fields: Dictionary of fields to update
-            
+
         Returns:
             True if update was successful, False otherwise
         """
         result = self.db.document_info.update_one(
-            {"_id": ObjectId(doc_id)},
-            {"$set": update_fields}
+            {"_id": ObjectId(doc_id)}, {"$set": update_fields}
         )
         return result.modified_count > 0
-    
-    def get_user_answers_by_document(self, document_id: str, user_id: str) -> List[Dict]:
+
+    def get_user_answers_by_document(
+        self, document_id: str, user_id: str
+    ) -> List[Dict]:
         """Get all answers submitted by a user for a specific document.
-        
+
         Args:
             document_id: The ID of the document
             user_id: The ID of the user
-            
+
         Returns:
             List of user answers for the document
         """
         try:
-            answers = self.db.user_answers.find({
-                "document_id": ObjectId(document_id),
-                "user_id": ObjectId(user_id)
-            })
-            
+            answers = self.db.user_answers.find(
+                {"document_id": ObjectId(document_id), "user_id": ObjectId(user_id)}
+            )
+
             result = []
             for answer in answers:
                 # Convert ObjectId to string for serialization
@@ -223,16 +261,17 @@ class ExamRepository:
                 answer["question_id"] = str(answer["question_id"])
                 answer["user_id"] = str(answer["user_id"])
                 result.append(answer)
-                
+
             return result
         except Exception as e:
             # Log the error and return empty list instead of propagating the error
             print(f"Error retrieving answers for document {document_id}: {str(e)}")
             return []
-    
-    def get_user_answer_by_question_id(self, question_id: str, user_id: str) -> Optional[Dict]:
+
+    def get_user_answer_by_question_id(
+        self, question_id: str, user_id: str
+    ) -> Optional[Dict]:
         """Get a user answer by question ID and user ID."""
-        return self.db.user_answers.find_one({
-            "question_id": ObjectId(question_id),
-            "user_id": ObjectId(user_id)
-        })
+        return self.db.user_answers.find_one(
+            {"question_id": ObjectId(question_id), "user_id": ObjectId(user_id)}
+        )

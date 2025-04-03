@@ -7,4 +7,10 @@ from .chroma_embedding import ChromaEmbeddingStore
 mongo_db_client = MongoClient(settings.MONGODB_URI)
 mongo_db = mongo_db_client[settings.MONGODB_DB_NAME]
 
-__all__ = ["UserRepository", "ExamRepository", "mongo_db", "mongo_db_client", "ChromaEmbeddingStore"]
+__all__ = [
+    "UserRepository",
+    "ExamRepository",
+    "mongo_db",
+    "mongo_db_client",
+    "ChromaEmbeddingStore",
+]

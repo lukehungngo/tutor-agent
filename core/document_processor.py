@@ -131,13 +131,17 @@ class DocumentProcessor:
         if not self.documents:
             raise ValueError("No documents loaded. Call load_document first.")
         if not self.document_id:
-            raise ValueError("Document ID not set. Call load_document with document_id first.")
+            raise ValueError(
+                "Document ID not set. Call load_document with document_id first."
+            )
 
         chunks = self.process_documents()
 
         # Store documents and create embeddings in the ChromaDB store
         self.embedding_store.create_document_embeddings(self.document_id, chunks)
-        logger.info(f"Created and persisted vector store for document {self.document_id}")
+        logger.info(
+            f"Created and persisted vector store for document {self.document_id}"
+        )
 
     @time_execution
     def similarity_search(self, query: str, k: int = 4):
@@ -152,8 +156,10 @@ class DocumentProcessor:
             List of relevant document chunks
         """
         if not self.document_id:
-            raise ValueError("Document ID not set. Call load_document with document_id first.")
-            
+            raise ValueError(
+                "Document ID not set. Call load_document with document_id first."
+            )
+
         results = self.embedding_store.similarity_search(self.document_id, query, k=k)
 
         # Convert to Document objects

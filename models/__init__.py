@@ -1,4 +1,12 @@
-from .exam import BloomLevel, BloomAbstractLevel, Question, CorrectnessLevel, EvaluationResult
+from .exam import (
+    BloomLevel,
+    BloomAbstractLevel,
+    Question,
+    CorrectnessLevel,
+    EvaluationResult,
+    get_bloom_level_abstract,
+    get_temperature_from_bloom_level,
+)
 from .document_info import DocumentInfo
 from .user import User, Token, UserCreate, UserInDB
 
@@ -13,4 +21,6 @@ __all__ = [
     "Token",
     "UserCreate",
     "UserInDB",
+    "get_bloom_level_abstract",
+    "get_temperature_from_bloom_level",
 ]

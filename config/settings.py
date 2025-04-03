@@ -33,7 +33,7 @@ class Settings:
     def __init__(self):  # Initialize the gemini client when settings instance is called
         self.GOOGLE_GEMINI_CLIENT: ChatGoogleGenerativeAI = ChatGoogleGenerativeAI(
             api_key=self.GOOGLE_GEMINI_API_KEY,
-            model=SUPPORTED_MODELS[1],
+            model="gemini-2.0-flash",
             temperature=0,
             max_tokens=None,
             timeout=None,
