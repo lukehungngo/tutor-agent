@@ -14,14 +14,20 @@ import uuid
 from tempfile import NamedTemporaryFile
 from core import (
     DocumentProcessor,
-    ExamGenerator,
+    EssayGenerator,
     Gemma3QuestionGenerator,
     Gemma3AnswerEvaluator,
     AnswerEvaluator,
 )
-from models import BloomAbstractLevel, DocumentInfo, User, get_temperature_from_bloom_level, UserAnswer
+from models import (
+    BloomAbstractLevel,
+    DocumentInfo,
+    User,
+    get_temperature_from_bloom_level,
+    UserAnswer,
+)
 from utils import async_time_execution, logger
-from db import ExamRepository, ChromaEmbeddingStore
+from db import EssayRepository, ChromaEmbeddingStore
 from langchain.schema import Document
 from pathlib import Path
 from config.settings import settings
@@ -30,13 +36,13 @@ import time
 from services import auth_service
 import json
 
-router = APIRouter(prefix="/exam", tags=["exam"])
+router = APIRouter(prefix="/essay", tags=["essay"])
 
-exam_generator = ExamGenerator(Gemma3QuestionGenerator())
+exam_generator = EssayGenerator(Gemma3QuestionGenerator())
 answer_evaluator = AnswerEvaluator(Gemma3AnswerEvaluator())
 
 # Initialize MongoDB
-exam_repository = ExamRepository()
+essay_repository = EssayRepository()
 
 # Initialize ChromaDB embedding store
 embedding_store = ChromaEmbeddingStore(persist_directory=settings.CHROMA_PERSIST_DIR)
@@ -110,7 +116,7 @@ async def upload_document(
             )
 
             # Save document info to MongoDB first to get document_id
-            document_id = exam_repository.save_document_info(doc_info)
+            document_id = essay_repository.save_document_info(doc_info)
 
             # Initialize processor for this document with shared embedding store
             processor = DocumentProcessor(embedding_store=embedding_store)
@@ -118,10 +124,10 @@ async def upload_document(
             # Process document with document_id
             docs = processor.load_document(temp_path, document_id=document_id)
             chunks = processor.process_documents()
-            
+
             # Update document info with chunk count
             doc_info.chunk_count = len(chunks)
-            
+
             processor.create_vector_store()
 
             # Store processor for later use
@@ -130,7 +136,9 @@ async def upload_document(
             summary = processor.generate_brief_summary(chunks[:5])
 
             # Update in DB
-            exam_repository.update_document_info(document_id, {"chunk_count": len(chunks), "summary": summary})
+            essay_repository.update_document_info(
+                document_id, {"chunk_count": len(chunks), "summary": summary}
+            )
 
             # Clean up temporary file
             os.unlink(temp_path)
@@ -162,13 +170,13 @@ async def query_document(
         # Check if processor exists for this document
         if request.document_id not in document_processors:
             # Check if document exists
-            doc_info = exam_repository.get_document_info(request.document_id)
+            doc_info = essay_repository.get_document_info(request.document_id)
             if not doc_info:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Document {request.document_id} not found",
                 )
-                
+
             # Create a new processor with the document_id
             processor = DocumentProcessor(embedding_store=embedding_store)
             # Set the document_id for this processor
@@ -202,7 +210,7 @@ async def get_document_summary(
         # Check if processor exists for this document
         if request.document_id not in document_processors:
             # Check if document exists
-            doc_info = exam_repository.get_document_info(request.document_id)
+            doc_info = essay_repository.get_document_info(request.document_id)
             if not doc_info:
                 raise HTTPException(
                     status_code=404,
@@ -246,17 +254,17 @@ async def get_document_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/generate_exam")
+@router.post("/generate_essay")
 @async_time_execution
-async def generate_exam(
+async def generate_essay(
     request: ExamRequest, user: User = Depends(auth_service.require_auth)
 ):
-    """Generate an exam."""
+    """Generate an essay."""
     try:
         # Check if processor exists for this document
         if request.document_id not in document_processors:
             # Check if document exists
-            doc_info = exam_repository.get_document_info(request.document_id)
+            doc_info = essay_repository.get_document_info(request.document_id)
             if not doc_info:
                 raise HTTPException(
                     status_code=404,
@@ -275,7 +283,7 @@ async def generate_exam(
                     detail=f"Document data not found for document {request.document_id}",
                 )
 
-            # Load document chunks for exam generation
+            # Load document chunks for essay generation
             all_docs = embedding_store.get_all_document_chunks(request.document_id)
             processor.documents = [
                 Document(page_content=doc["text"], metadata=doc["metadata"])
@@ -288,14 +296,14 @@ async def generate_exam(
         # logger.info(f"Summary: {summary}")
         summary = "\n\n".join([chunk.page_content for chunk in chunks])
 
-        # Generate exam questions
-        result = await exam_generator.generate_exam(
+        # Generate essay questions
+        result = await exam_generator.generate_essay(
             summary,
             [chunk.page_content for chunk in chunks],
             bloom_level=request.bloom_level,
             temperature=0.3,
         )
-        
+
         # Set document_id for each question
         for question in result:
             question.document_id = request.document_id
@@ -303,7 +311,7 @@ async def generate_exam(
             question.user_id = user.id
 
         # Save questions to MongoDB
-        question_ids = exam_repository.save_questions(result)
+        question_ids = essay_repository.save_questions(result)
 
         # Return questions with IDs
         questions_with_ids = []
@@ -317,7 +325,7 @@ async def generate_exam(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating exam: {e}")
+        logger.error(f"Error generating essay: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -329,7 +337,7 @@ async def evaluate_answer(
     """Evaluate an answer to a question."""
     try:
         # Retrieve question from MongoDB
-        question_data = exam_repository.get_question(request.question_id)
+        question_data = essay_repository.get_question(request.question_id)
         if not question_data:
             raise HTTPException(
                 status_code=404, detail=f"Question {request.question_id} not found"
@@ -361,7 +369,7 @@ async def submit_answer(
     try:
         assert user.id is not None, "User ID cannot be None"
         # First evaluate the answer
-        question_data = exam_repository.get_question(request.question_id)
+        question_data = essay_repository.get_question(request.question_id)
         if not question_data:
             raise HTTPException(
                 status_code=404, detail=f"Question {request.question_id} not found"
@@ -388,7 +396,7 @@ async def submit_answer(
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
-        answer_id = exam_repository.save_answer(user_answer)
+        answer_id = essay_repository.save_answer(user_answer)
 
         # Return the evaluation with the saved answer ID
         result = user_answer.as_dict()
@@ -409,22 +417,22 @@ async def delete_document(
     """Delete a document and all associated data."""
     try:
         # Check if document exists
-        doc_info = exam_repository.get_document_info(document_id)
+        doc_info = essay_repository.get_document_info(document_id)
         if not doc_info:
             raise HTTPException(
                 status_code=404,
                 detail=f"Document {document_id} not found",
             )
-            
+
         # Delete from ChromaDB
         success = embedding_store.delete_document_embeddings(document_id)
 
         # Remove from document processors if it exists
         if document_id in document_processors:
             del document_processors[document_id]
-            
+
         # Also delete the document info from MongoDB
-        exam_repository.delete_document_info(document_id)
+        essay_repository.delete_document_info(document_id)
 
         if success:
             return {"status": "success", "message": f"Document {document_id} deleted"}
@@ -443,12 +451,13 @@ async def get_user_documents(user: User = Depends(auth_service.require_auth)):
     try:
         if not user.id:
             raise HTTPException(status_code=401, detail="User ID is required")
-        
-        documents = exam_repository.get_documents_by_user(user.id)
+
+        documents = essay_repository.get_documents_by_user(user.id)
         return {"documents": [doc.to_dict() for doc in documents]}
     except Exception as e:
         logger.error(f"Error retrieving user documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/documents/{document_id}")
 async def get_document_by_id(
@@ -456,9 +465,11 @@ async def get_document_by_id(
 ):
     """Get a document by ID."""
     try:
-        document = exam_repository.get_document_info(document_id)
+        document = essay_repository.get_document_info(document_id)
         if not document:
-            raise HTTPException(status_code=404, detail=f"Document {document_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Document {document_id} not found"
+            )
         document_dict = document.to_dict()
         document_dict["questions"] = get_questions_by_document(document_id, user)
         return document_dict
@@ -477,22 +488,31 @@ async def get_questions_for_document(
         logger.error(f"Error retrieving questions for document {document_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 def get_questions_by_document(document_id: str, user: User):
     assert user.id is not None, "User ID cannot be None"
-    questions = exam_repository.get_questions_by_document(document_id)
+    questions = essay_repository.get_questions_by_document(document_id)
     # Enhance questions with user answers if they exist
-    user_answers = exam_repository.get_user_answers_by_document(document_id, user.id)
+    user_answers = essay_repository.get_user_answers_by_document(document_id, user.id)
     enhanced_questions = []
     for question in questions:
         question_dict = question.as_dict()
         # Try to get user's answer for this question if it exists
         # Convert IDs to strings for comparison to ensure type matching
-        user_answer = next((answer for answer in user_answers if str(answer.question_id) == str(question.id)), None)
+        user_answer = next(
+            (
+                answer
+                for answer in user_answers
+                if str(answer.question_id) == str(question.id)
+            ),
+            None,
+        )
         if user_answer:
             question_dict["user_answer"] = user_answer.as_dict()
         enhanced_questions.append(question_dict)
-    
+
     return enhanced_questions
+
 
 @router.get("/documents/{document_id}/questions/{question_id}")
 async def get_question_by_id(
@@ -501,19 +521,23 @@ async def get_question_by_id(
     """Get a question by ID."""
     try:
         assert user.id is not None, "User ID cannot be None"
-        question = exam_repository.get_question(question_id)
+        question = essay_repository.get_question(question_id)
         if not question:
-            raise HTTPException(status_code=404, detail=f"Question {question_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Question {question_id} not found"
+            )
         question_dict = question.as_dict()
         # Enhance question with user answer if it exists
-        user_answer = exam_repository.get_user_answer_by_question_id(question_id, user.id)
+        user_answer = essay_repository.get_user_answer_by_question_id(
+            question_id, user.id
+        )
         if user_answer:
             question_dict["user_answer"] = user_answer.as_dict()
         return question_dict
     except Exception as e:
         logger.error(f"Error retrieving question by ID: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 @router.delete("/documents/{document_id}/questions/{question_id}")
 async def delete_questions(
@@ -522,14 +546,18 @@ async def delete_questions(
     """Delete a question by ID."""
     try:
         assert user.id is not None, "User ID cannot be None"
-        question = exam_repository.get_question(question_id)
+        question = essay_repository.get_question(question_id)
         if not question:
-            raise HTTPException(status_code=404, detail=f"Question {question_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Question {question_id} not found"
+            )
         if question.user_id != user.id:
-            raise HTTPException(status_code=403, detail="You are not authorized to delete this question")
-        
-        exam_repository.delete_question(question_id)
-        
+            raise HTTPException(
+                status_code=403, detail="You are not authorized to delete this question"
+            )
+
+        essay_repository.delete_question(question_id)
+
         return {"status": "success", "message": f"Question {question_id} deleted"}
     except Exception as e:
         logger.error(f"Error deleting question: {e}")

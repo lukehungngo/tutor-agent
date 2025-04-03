@@ -1,5 +1,5 @@
 from .user_repository import UserRepository
-from .exam_repository import ExamRepository
+from .essay_repository import EssayRepository
 from config.settings import settings
 from pymongo import MongoClient
 from .chroma_embedding import ChromaEmbeddingStore
@@ -9,7 +9,7 @@ mongo_db = mongo_db_client[settings.MONGODB_DB_NAME]
 
 __all__ = [
     "UserRepository",
-    "ExamRepository",
+    "EssayRepository",
     "mongo_db",
     "mongo_db_client",
     "ChromaEmbeddingStore",

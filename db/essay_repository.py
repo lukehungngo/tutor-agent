@@ -2,12 +2,12 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
-from models.exam import Question, UserAnswer
+from models.essay import Question, UserAnswer
 from models.document_info import DocumentInfo
 from config.settings import settings
 
 
-class ExamRepository:
+class EssayRepository:
     def __init__(self):
         """Initialize MongoDB connection."""
         self.client = MongoClient(settings.MONGODB_URI)
@@ -92,7 +92,8 @@ class ExamRepository:
         return str(result.inserted_id)
 
     def save_questions(
-        self, questions: List[Question],
+        self,
+        questions: List[Question],
     ) -> List[str]:
         """Save multiple questions to the database."""
         question_data = []
@@ -158,10 +159,7 @@ class ExamRepository:
 
         return questions
 
-    def save_answer(
-        self,
-        user_answer: UserAnswer
-    ) -> str:
+    def save_answer(self, user_answer: UserAnswer) -> str:
         """Save a user's answer to a question.
 
         If an answer already exists for the same document, question, and user,
@@ -170,7 +168,12 @@ class ExamRepository:
         Returns:
             The ID of the inserted or updated answer
         """
+        # Get answer data as dictionary
         answer_data = user_answer.as_dict()
+        
+        # Remove created_at from the main update to prevent conflict
+        if "created_at" in answer_data:
+            del answer_data["created_at"]
 
         # Define the filter to find existing answer
         filter_query = {
@@ -197,7 +200,6 @@ class ExamRepository:
                 return str(existing_answer["_id"])
             else:
                 raise ValueError("No answer found after upsert operation")
-            
 
     def get_answer_by_id(self, answer_id: str) -> Optional[Dict]:
         """Get a user answer by ID."""
@@ -242,11 +244,15 @@ class ExamRepository:
                     answer["id"] = str(answer.pop("_id"))
                 if "user_id" in answer and isinstance(answer["user_id"], ObjectId):
                     answer["user_id"] = str(answer["user_id"])
-                if "document_id" in answer and isinstance(answer["document_id"], ObjectId):
+                if "document_id" in answer and isinstance(
+                    answer["document_id"], ObjectId
+                ):
                     answer["document_id"] = str(answer["document_id"])
-                if "question_id" in answer and isinstance(answer["question_id"], ObjectId):
+                if "question_id" in answer and isinstance(
+                    answer["question_id"], ObjectId
+                ):
                     answer["question_id"] = str(answer["question_id"])
-                
+
                 result.append(UserAnswer.from_dict(answer))
 
             return result
@@ -272,7 +278,7 @@ class ExamRepository:
                 answer["document_id"] = str(answer["document_id"])
             if "question_id" in answer and isinstance(answer["question_id"], ObjectId):
                 answer["question_id"] = str(answer["question_id"])
-            
+
             return UserAnswer.from_dict(answer)
         return None
 

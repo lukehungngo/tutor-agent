@@ -1,4 +1,4 @@
-from .exam import (
+from .essay import (
     BloomLevel,
     BloomAbstractLevel,
     Question,

@@ -3,7 +3,7 @@ from utils import logger, time_execution
 from models import CorrectnessLevel, EvaluationResult, BloomAbstractLevel
 from core.pre_trained_model.google_gemma import Gemma3Model
 from core.pre_trained_model.google_gemini_api import GoogleGeminiAPI
-
+from config import settings
 EVALUATION_PROMPT = """
 Evaluate the student's answer using both the provided context and your general knowledge of the subject.
 
@@ -75,7 +75,10 @@ class Gemma3AnswerEvaluator:
             llm: The language model to use for evaluation, or None to create a new one
         """
         if llm is None:
-            self.llm = GoogleGeminiAPI()
+            self.llm = GoogleGeminiAPI(
+                api_client=settings.GOOGLE_GEMINI_CLIENT,
+                temperature=0.1,
+            )
         else:
             self.llm = llm
 

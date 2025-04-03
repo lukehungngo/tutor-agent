@@ -276,22 +276,25 @@ if __name__ == "__main__":
 
         # Define a simple prompt template
         template = """
-        Generate questions about the following context:
-        
+        Generate multiple choice questions about the following context:
+
         CONTEXT: {context}
-        
-        Create {number_of_questions} questions for "analyze" level based on Bloom's Taxonomy.
-        Create {number_of_questions} questions for "create" level based on Bloom's Taxonomy.
-        
-        Guidelines:
-        - analyze: Test analysis of concepts
-        - create: Test creation of something new or alternative solutions
+
+        Create EXACTLY 10 multiple choice questions questions for "remember" level based on Bloom's Taxonomy.
+
+        Guidelines for "remember" level questions:
+        - remember: Test recall of specific facts or basic concepts
+
+        For each question:
+        1. Create exactly 4 answer options (A, B, C, D)
+        2. Mark the correct answer clearly
+        3. Ensure wrong options (distractors) are plausible but clearly incorrect
+        4. Make distractors relate to common misconceptions when possible
         """
 
         # Format the prompt
         prompt = template.format(
             context="Supervised learning vs unsupervised learning in machine learning",
-            number_of_questions=2,
         )
 
         # Generate JSON response
@@ -301,10 +304,16 @@ if __name__ == "__main__":
             schema={
                 "questions": [
                     {
-                        "level": "analyze",
-                        "question": "What is supervised learning?",
-                        "hint": "Think about labeled data",
-                        "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
+						"bloom_level": "remember",
+						"question": "What is the key concept described in the text?",
+						"options": {
+							"A": "This is a option A",
+							"B": "This is a option B",
+							"C": "This is a option C",
+							"D": "This is a option D"
+						},
+						"hint": "Look for definitios or fundamental concepts",
+						"explanation": "This is a sample answer that would accurately explain why this is the correct answer."
                     }
                 ]
             },
@@ -312,57 +321,59 @@ if __name__ == "__main__":
         logger.info(f"JSON response: {json.dumps(json_response, indent=2)}")
         # Generate questions using Bloom's Taxonomy prompts
 
-        text_response = gemma.generate(prompt)
-        logger.info(f"Text response: {text_response}")
-        logger.info("Generating questions using Bloom's Taxonomy prompts...")
+        logger.info(f"Questions length: {len(json_response['questions'])}")
+
+        # text_response = gemma.generate(prompt)
+        # logger.info(f"Text response: {text_response}")
+        # logger.info("Generating questions using Bloom's Taxonomy prompts...")
 
         # Define Bloom's Taxonomy prompts
-        bloom_prompts = {
-            "remember": """Given the following content:
-                {context}
-                Generate a question for "remember" level in bloom's taxonomy that tests the recall of basic facts, definitions, concepts, or principles.
-                """,
-            "understand": """Given the following content:
-                {context}
-                Generate a question for "understand" level in bloom's taxonomy that requires explaining ideas or concepts in their own words.
-                """,
-            "apply": """Given the following content:
-                {context}
-                Generate a question for "apply" level in bloom's taxonomy that requires applying learned information to solve a problem or new situation.
-                """,
-            "analyze": """Given the following content:
-                {context}
-                Generate a question for "analyze" level in bloom's taxonomy that requires breaking down information and establishing relationships between concepts.
-                """,
-            "evaluate": """Given the following content:
-                {context}
-                Generate a question for "evaluate" level in bloom's taxonomy that requires making judgments or evaluating outcomes based on criteria.
-                """,
-            "create": """Given the following content:
-                {context}
-                Generate a question for "create" level in bloom's taxonomy that requires creating something new or proposing alternative solutions.
-                """,
-        }
+        # bloom_prompts = {
+        #     "remember": """Given the following content:
+        #         {context}
+        #         Generate a question for "remember" level in bloom's taxonomy that tests the recall of basic facts, definitions, concepts, or principles.
+        #         """,
+        #     "understand": """Given the following content:
+        #         {context}
+        #         Generate a question for "understand" level in bloom's taxonomy that requires explaining ideas or concepts in their own words.
+        #         """,
+        #     "apply": """Given the following content:
+        #         {context}
+        #         Generate a question for "apply" level in bloom's taxonomy that requires applying learned information to solve a problem or new situation.
+        #         """,
+        #     "analyze": """Given the following content:
+        #         {context}
+        #         Generate a question for "analyze" level in bloom's taxonomy that requires breaking down information and establishing relationships between concepts.
+        #         """,
+        #     "evaluate": """Given the following content:
+        #         {context}
+        #         Generate a question for "evaluate" level in bloom's taxonomy that requires making judgments or evaluating outcomes based on criteria.
+        #         """,
+        #     "create": """Given the following content:
+        #         {context}
+        #         Generate a question for "create" level in bloom's taxonomy that requires creating something new or proposing alternative solutions.
+        #         """,
+        # }
 
-        # Example of using a specific Bloom's level prompt
-        context = "Machine learning algorithms and their applications in healthcare"
-        for level in bloom_prompts:
-            prompt = bloom_prompts[level].format(context=context)
-            question = gemma.generate(
-                prompt,
-                schema={
-                    "questions": [
-                        {
-                            "level": level,
-                            "question": "What is supervised learning?",
-                            "hint": "Think about labeled data",
-                            "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
-                        }
-                    ]
-                },
-            )
-            logger.info(f"Question for {level} level:")
-            logger.info(f"{json.dumps(question, indent=2)}")
+        # # Example of using a specific Bloom's level prompt
+        # context = "Machine learning algorithms and their applications in healthcare"
+        # for level in bloom_prompts:
+        #     prompt = bloom_prompts[level].format(context=context)
+        #     question = gemma.generate(
+        #         prompt,
+        #         schema={
+        #             "questions": [
+        #                 {
+        #                     "level": level,
+        #                     "question": "What is supervised learning?",
+        #                     "hint": "Think about labeled data",
+        #                     "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
+        #                 }
+        #             ]
+        #         },
+        #     )
+        #     logger.info(f"Question for {level} level:")
+        #     logger.info(f"{json.dumps(question, indent=2)}")
 
     except KeyboardInterrupt:
         logger.info("\nOperation cancelled by user.")

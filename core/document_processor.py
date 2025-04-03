@@ -325,6 +325,7 @@ Focus only on the main concepts, key points, and central ideas:
 
 {combined_text}
 
+DO NOT INCLUDE THE WORDS "Summary:" IN THE SUMMARY.
 Summary:"""
 
             # Initialize the model for text generation
@@ -357,7 +358,6 @@ Summary:"""
 
             # Clean up any special tokens and ensure reasonable length
             summary = generated_text.replace("<end_of_turn>", "").strip()
-
             return summary
 
         except Exception as e:

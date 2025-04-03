@@ -2,14 +2,15 @@ from typing import Dict, Optional, Union, Any
 import json
 import re
 from utils import logger, time_execution
-from config.settings import settings
-
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import SecretStr
 
 class GoogleGeminiAPI:
     """Implementation for Google's Gemini API with robust JSON support using LangChain."""
 
     def __init__(
         self,
+        api_client: ChatGoogleGenerativeAI,
         temperature: float = 0.1,
         max_tokens: int = 65356,
     ):
@@ -21,7 +22,7 @@ class GoogleGeminiAPI:
         """
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.client = settings.GOOGLE_GEMINI_CLIENT
+        self.client = api_client
 
         # Update client parameters with our defaults
         self.client.temperature = temperature
@@ -168,28 +169,79 @@ if __name__ == "__main__":
         # Initialize the client
         gemini = GoogleGeminiAPI(
             temperature=0.1,  # Very low temperature for predictable JSON
+            api_client=ChatGoogleGenerativeAI(
+				api_key=SecretStr("AIzaSyCpnX_FJ_yYdwcGv9cdccDFUhpivvqNpJA"),
+				model="gemini-2.0-flash",
+				temperature=0.1,
+				max_tokens=65356,
+				timeout=None,
+				max_retries=3,
+            ),
+            max_tokens=65356,
         )
 
-        # Define a simple prompt template
+        # # Define a simple prompt template
+        # template = """
+        # Generate questions about the following context:
+        
+        # CONTEXT: {context}
+        
+        # Create {number_of_questions} questions for "analyze" level based on Bloom's Taxonomy.
+        # Create {number_of_questions} questions for "create" level based on Bloom's Taxonomy.
+        
+        # Guidelines:
+        # - analyze: Test analysis of concepts
+        # - create: Test creation of something new or alternative solutions
+        # """
+
+        # # Format the prompt
+        # prompt = template.format(
+        #     context="Supervised learning vs unsupervised learning in machine learning",
+        #     number_of_questions=2,
+        # )
+
+        # # Generate JSON response
+        # logger.info("Generating JSON response...")
+        # json_response = gemini.generate(
+        #     prompt,
+        #     schema={
+        #         "questions": [
+        #             {
+        #                 "level": "analyze",
+        #                 "question": "What is supervised learning?",
+        #                 "hint": "Think about labeled data",
+        #                 "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
+        #             }
+        #         ]
+        #     },
+        # )
+        # logger.info(f"JSON response: {json.dumps(json_response, indent=2)}")
+
+        # # Generate text response
+        # logger.info("Generating text response...")
+        # text_response = gemini.generate_text(prompt)
+        # logger.info(f"Text response: {text_response}")
         template = """
-        Generate questions about the following context:
-        
+        Generate multiple choice questions about the following context:
+
         CONTEXT: {context}
-        
-        Create {number_of_questions} questions for "analyze" level based on Bloom's Taxonomy.
-        Create {number_of_questions} questions for "create" level based on Bloom's Taxonomy.
-        
-        Guidelines:
-        - analyze: Test analysis of concepts
-        - create: Test creation of something new or alternative solutions
+
+        Create EXACTLY 4 multiple choice questions questions for "remember" level based on Bloom's Taxonomy.
+
+        Guidelines for "remember" level questions:
+        - remember: Test recall of specific facts or basic concepts
+
+        For each question:
+        1. Create exactly 4 answer options (A, B, C, D)
+        2. Mark the correct answer clearly
+        3. Ensure wrong options (distractors) are plausible but clearly incorrect
+        4. Make distractors relate to common misconceptions when possible
         """
 
         # Format the prompt
         prompt = template.format(
             context="Supervised learning vs unsupervised learning in machine learning",
-            number_of_questions=2,
         )
-
         # Generate JSON response
         logger.info("Generating JSON response...")
         json_response = gemini.generate(
@@ -197,20 +249,24 @@ if __name__ == "__main__":
             schema={
                 "questions": [
                     {
-                        "level": "analyze",
-                        "question": "What is supervised learning?",
-                        "hint": "Think about labeled data",
-                        "answer": "Supervised learning is a type of machine learning where models learn from labeled training data.",
+						"bloom_level": "remember",
+						"question": "What is the key concept described in the text?",
+						"options": {
+							"A": "This is a option A",
+							"B": "This is a option B",
+							"C": "This is a option C",
+							"D": "This is a option D"
+						},
+						"hint": "Look for definitios or fundamental concepts",
+						"explanation": "This is a sample answer that would accurately explain why this is the correct answer."
                     }
                 ]
             },
         )
         logger.info(f"JSON response: {json.dumps(json_response, indent=2)}")
+        # Generate questions using Bloom's Taxonomy prompts
 
-        # Generate text response
-        logger.info("Generating text response...")
-        text_response = gemini.generate_text(prompt)
-        logger.info(f"Text response: {text_response}")
+        logger.info(f"Questions length: {len(json_response['questions'])}")
 
     except KeyboardInterrupt:
         logger.info("\nOperation cancelled by user.")

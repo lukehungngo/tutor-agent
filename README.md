@@ -36,14 +36,14 @@ export OPENAI_API_KEY=your_api_key_here
 uvicorn tutor_agent.main:app --reload
 ```
 
-2. Create an exam session by uploading a document:
+2. Create an essay session by uploading a document:
 ```bash
-curl -X POST -F "file=@your_document.pdf" -F "summary=Optional summary of the document" -F "num_questions=5" http://localhost:8000/start-exam
+curl -X POST -F "file=@your_document.pdf" -F "summary=Optional summary of the document" -F "num_questions=5" http://localhost:8000/start-essay
 ```
 
-3. Get questions for an exam session:
+3. Get questions for an essay session:
 ```bash
-curl -X GET http://localhost:8000/exam/{session_id}
+curl -X GET http://localhost:8000/essay/{session_id}
 ```
 
 4. Submit and evaluate an answer:
@@ -58,18 +58,18 @@ curl -X POST -H "Content-Type: application/json" \
 curl -X POST http://localhost:8000/generate-more-questions/{session_id}?num_questions=3
 ```
 
-6. Delete an exam session:
+6. Delete an essay session:
 ```bash
-curl -X DELETE http://localhost:8000/exam/{session_id}
+curl -X DELETE http://localhost:8000/essay/{session_id}
 ```
 
 ## API Endpoints
 
-- `POST /start-exam`: Create a new exam session by uploading a document
-- `GET /exam/{session_id}`: Get questions for an exam session
+- `POST /start-essay`: Create a new essay session by uploading a document
+- `GET /essay/{session_id}`: Get questions for an essay session
 - `POST /submit-answer`: Submit and evaluate an answer
 - `POST /generate-more-questions/{session_id}`: Generate additional questions
-- `DELETE /exam/{session_id}`: Delete an exam session
+- `DELETE /essay/{session_id}`: Delete an essay session
 
 ## Workflow
 

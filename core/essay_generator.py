@@ -1,9 +1,9 @@
 from typing import List, Dict, Optional
 from utils import logger
 from core.pre_trained_model import GoogleGeminiAPI, Gemma3Model
-import torch
 from typing import Union, Any
-from models.exam import Question, BloomAbstractLevel
+from models.essay import Question, BloomAbstractLevel
+from config import settings
 
 BLOOM_BASIC_LEVEL_PROMPT = """Generate educational assessment questions based ONLY on the following context:
 
@@ -126,7 +126,10 @@ class Gemma3QuestionGenerator:
             #     torch_dtype=torch.float16,
             #     temperature=0.1,  # Very low temperature for predictable JSON
             # )
-            self.llm = GoogleGeminiAPI()
+            self.llm = GoogleGeminiAPI(
+                api_client=settings.GOOGLE_GEMINI_CLIENT,
+                temperature=0.1,
+            )
         else:
             self.llm = llm
         self.prompt_template = None
@@ -197,11 +200,11 @@ class Gemma3QuestionGenerator:
             return BLOOM_QUESTION_GENERATION_BASIC_SCHEMA
 
 
-class ExamGenerator:
+class EssayGenerator:
     def __init__(self, llm: Union[Gemma3QuestionGenerator, Any]):
         self.llm = llm
 
-    async def generate_exam(
+    async def generate_essay(
         self,
         summary_context: str,
         chunks: List[str],

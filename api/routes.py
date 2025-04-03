@@ -7,7 +7,7 @@ from db import mongo_db
 import os
 from config.settings import settings
 from .auth_routes import router as auth_router
-from .exam_routes import router as exam_router
+from .essay_routes import router as essay_router
 
 app = FastAPI(title="AI Tutor Document Processor API")
 
@@ -22,7 +22,7 @@ app.add_middleware(
 
 # Include auth routes
 app.include_router(auth_router)
-app.include_router(exam_router)
+app.include_router(essay_router)
 
 
 @app.get("/health")
