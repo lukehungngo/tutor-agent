@@ -2,7 +2,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
-from models.exam import Question, BloomLevel
+from models.exam import Question, UserAnswer
 from models.document_info import DocumentInfo
 from config.settings import settings
 
@@ -92,7 +92,7 @@ class ExamRepository:
         return str(result.inserted_id)
 
     def save_questions(
-        self, questions: List[Question], user_id: Optional[str] = None
+        self, questions: List[Question],
     ) -> List[str]:
         """Save multiple questions to the database."""
         question_data = []
@@ -105,8 +105,8 @@ class ExamRepository:
                     "answer": question.answer,
                     "context": question.context,
                     "document_id": question.document_id,
-                    "created_at": datetime.now(timezone.utc),
-                    "user_id": user_id,
+                    "created_at": question.created_at,
+                    "user_id": question.user_id,
                 }
             )
 
@@ -160,15 +160,7 @@ class ExamRepository:
 
     def save_answer(
         self,
-        document_id: str,
-        question_id: str,
-        user_id: str,
-        answer_text: str,
-        correctness_level: str,
-        score: Optional[float] = None,
-        feedback: Optional[str] = None,
-        improvement_suggestions: Optional[List[str]] = None,
-        encouragement: Optional[str] = None,
+        user_answer: UserAnswer
     ) -> str:
         """Save a user's answer to a question.
 
@@ -178,24 +170,13 @@ class ExamRepository:
         Returns:
             The ID of the inserted or updated answer
         """
-        answer_data = {
-            "document_id": ObjectId(document_id),
-            "question_id": ObjectId(question_id),
-            "user_id": ObjectId(user_id),
-            "answer_text": answer_text,
-            "correctness_level": correctness_level,
-            "score": score,
-            "feedback": feedback,
-            "improvement_suggestions": improvement_suggestions,
-            "encouragement": encouragement,
-            "updated_at": datetime.now(timezone.utc),
-        }
+        answer_data = user_answer.as_dict()
 
         # Define the filter to find existing answer
         filter_query = {
-            "document_id": ObjectId(document_id),
-            "question_id": ObjectId(question_id),
-            "user_id": ObjectId(user_id),
+            "document_id": ObjectId(user_answer.document_id),
+            "question_id": ObjectId(user_answer.question_id),
+            "user_id": ObjectId(user_answer.user_id),
         }
 
         # Set created_at only for new documents
@@ -216,6 +197,7 @@ class ExamRepository:
                 return str(existing_answer["_id"])
             else:
                 raise ValueError("No answer found after upsert operation")
+            
 
     def get_answer_by_id(self, answer_id: str) -> Optional[Dict]:
         """Get a user answer by ID."""
@@ -238,7 +220,7 @@ class ExamRepository:
 
     def get_user_answers_by_document(
         self, document_id: str, user_id: str
-    ) -> List[Dict]:
+    ) -> List[UserAnswer]:
         """Get all answers submitted by a user for a specific document.
 
         Args:
@@ -255,12 +237,17 @@ class ExamRepository:
 
             result = []
             for answer in answers:
-                # Convert ObjectId to string for serialization
-                answer["id"] = str(answer.pop("_id"))
-                answer["document_id"] = str(answer["document_id"])
-                answer["question_id"] = str(answer["question_id"])
-                answer["user_id"] = str(answer["user_id"])
-                result.append(answer)
+                # Convert all ObjectId fields to strings for serialization
+                if "_id" in answer:
+                    answer["id"] = str(answer.pop("_id"))
+                if "user_id" in answer and isinstance(answer["user_id"], ObjectId):
+                    answer["user_id"] = str(answer["user_id"])
+                if "document_id" in answer and isinstance(answer["document_id"], ObjectId):
+                    answer["document_id"] = str(answer["document_id"])
+                if "question_id" in answer and isinstance(answer["question_id"], ObjectId):
+                    answer["question_id"] = str(answer["question_id"])
+                
+                result.append(UserAnswer.from_dict(answer))
 
             return result
         except Exception as e:
@@ -270,8 +257,26 @@ class ExamRepository:
 
     def get_user_answer_by_question_id(
         self, question_id: str, user_id: str
-    ) -> Optional[Dict]:
+    ) -> Optional[UserAnswer]:
         """Get a user answer by question ID and user ID."""
-        return self.db.user_answers.find_one(
+        answer = self.db.user_answers.find_one(
             {"question_id": ObjectId(question_id), "user_id": ObjectId(user_id)}
         )
+        if answer:
+            # Convert all ObjectId fields to strings for serialization
+            if "_id" in answer:
+                answer["id"] = str(answer.pop("_id"))
+            if "user_id" in answer and isinstance(answer["user_id"], ObjectId):
+                answer["user_id"] = str(answer["user_id"])
+            if "document_id" in answer and isinstance(answer["document_id"], ObjectId):
+                answer["document_id"] = str(answer["document_id"])
+            if "question_id" in answer and isinstance(answer["question_id"], ObjectId):
+                answer["question_id"] = str(answer["question_id"])
+            
+            return UserAnswer.from_dict(answer)
+        return None
+
+    def delete_question(self, question_id: str) -> bool:
+        """Delete a question by ID."""
+        result = self.db.questions.delete_one({"_id": ObjectId(question_id)})
+        return result.deleted_count > 0

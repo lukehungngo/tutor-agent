@@ -62,10 +62,10 @@ class Question:
     question: str = ""
     bloom_level: BloomLevel = BloomLevel.REMEMBER
     document_id: str = ""
-    created_at: Optional[datetime] = None
     context: Optional[str] = None
     hint: Optional[str] = None
     answer: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     @staticmethod
     def from_dict(data: Dict) -> "Question":
@@ -106,6 +106,7 @@ class Question:
             "hint": self.hint,
             "answer": self.answer,
             "context": self.context,
+            "created_at": self.created_at,
         }
 
     @staticmethod
@@ -221,3 +222,54 @@ class EvaluationResult:
                 encouragement="Thank you for your submission.",
                 next_steps="Please try again or contact support if the issue persists.",
             )
+
+@dataclass
+class UserAnswer:
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    document_id: Optional[str] = None
+    question_id: Optional[str] = None
+    answer_text: Optional[str] = None
+    correctness_level: Optional[CorrectnessLevel] = None
+    score: Optional[int] = None
+    feedback: Optional[str] = None
+    improvement_suggestions: Optional[List[str]] = None
+    encouragement: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    
+    def as_dict(self) -> Dict[str, Any]:
+        assert self.correctness_level is not None, "Correctness level cannot be None"
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "document_id": self.document_id,
+            "question_id": self.question_id,
+            "answer_text": self.answer_text,
+            "correctness_level": self.correctness_level.value,
+            "score": self.score,
+            "feedback": self.feedback,
+            "improvement_suggestions": self.improvement_suggestions,
+            "encouragement": self.encouragement,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+    @staticmethod
+    def from_dict(data: Dict) -> "UserAnswer":
+        assert data.get("correctness_level") is not None, "Correctness level cannot be None"
+        return UserAnswer(
+            id=data.get("_id") or data.get("id"),
+            user_id=data.get("user_id"),
+            document_id=data.get("document_id"),
+            question_id=data.get("question_id"),
+            answer_text=data.get("answer_text"),
+            correctness_level=CorrectnessLevel(data.get("correctness_level")),
+            score=data.get("score"),
+            feedback=data.get("feedback"),
+            improvement_suggestions=data.get("improvement_suggestions"),
+            encouragement=data.get("encouragement"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )

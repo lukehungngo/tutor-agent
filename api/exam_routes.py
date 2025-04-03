@@ -19,7 +19,7 @@ from core import (
     Gemma3AnswerEvaluator,
     AnswerEvaluator,
 )
-from models import BloomAbstractLevel, DocumentInfo, User, get_temperature_from_bloom_level
+from models import BloomAbstractLevel, DocumentInfo, User, get_temperature_from_bloom_level, UserAnswer
 from utils import async_time_execution, logger
 from db import ExamRepository, ChromaEmbeddingStore
 from langchain.schema import Document
@@ -299,9 +299,11 @@ async def generate_exam(
         # Set document_id for each question
         for question in result:
             question.document_id = request.document_id
+            question.created_at = datetime.now(timezone.utc)
+            question.user_id = user.id
 
         # Save questions to MongoDB
-        question_ids = exam_repository.save_questions(result, user.id)
+        question_ids = exam_repository.save_questions(result)
 
         # Return questions with IDs
         questions_with_ids = []
@@ -373,22 +375,24 @@ async def submit_answer(
             context, question_text, request.answer, temperature
         )
 
-        # Save the answer to MongoDB using the authenticated user's ID
-        answer_id = exam_repository.save_answer(
+        user_answer = UserAnswer(
+            user_id=user.id,
             document_id=question_data.document_id,
             question_id=request.question_id,
-            user_id=user.id,  # Now the type checker knows this is not None
             answer_text=request.answer,
-            correctness_level=evaluation.correctness_level.value,
+            correctness_level=evaluation.correctness_level,
             score=evaluation.score,
             feedback=json.dumps(evaluation.as_dict()),
             improvement_suggestions=evaluation.improvement_suggestions,
             encouragement=evaluation.encouragement,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
+        answer_id = exam_repository.save_answer(user_answer)
 
         # Return the evaluation with the saved answer ID
-        result = evaluation.as_dict()
-        result["answer_id"] = answer_id
+        result = user_answer.as_dict()
+        result["id"] = answer_id
 
         return result
     except HTTPException:
@@ -482,17 +486,10 @@ def get_questions_by_document(document_id: str, user: User):
     for question in questions:
         question_dict = question.as_dict()
         # Try to get user's answer for this question if it exists
-        user_answer = next((answer for answer in user_answers if answer["question_id"] == question.id), None)
+        # Convert IDs to strings for comparison to ensure type matching
+        user_answer = next((answer for answer in user_answers if str(answer.question_id) == str(question.id)), None)
         if user_answer:
-            question_dict["user_answer"] = {
-                "answer_text": user_answer.get("answer_text"),
-                "correctness_level": user_answer.get("correctness_level"),
-                "score": user_answer.get("score"),
-                "feedback": json.loads(user_answer.get("feedback", {})),
-                "improvement_suggestions": user_answer.get("improvement_suggestions"),
-                "encouragement": user_answer.get("encouragement"),
-                "created_at": user_answer.get("created_at")
-            }
+            question_dict["user_answer"] = user_answer.as_dict()
         enhanced_questions.append(question_dict)
     
     return enhanced_questions
@@ -511,16 +508,29 @@ async def get_question_by_id(
         # Enhance question with user answer if it exists
         user_answer = exam_repository.get_user_answer_by_question_id(question_id, user.id)
         if user_answer:
-            question_dict["user_answer"] = {
-                "answer_text": user_answer.get("answer_text"),
-                "correctness_level": user_answer.get("correctness_level"),
-                "score": user_answer.get("score"),
-                "feedback": json.loads(user_answer.get("feedback", {})),
-                "improvement_suggestions": user_answer.get("improvement_suggestions"),
-                "encouragement": user_answer.get("encouragement"),
-                "created_at": user_answer.get("created_at")
-            }
+            question_dict["user_answer"] = user_answer.as_dict()
         return question_dict
     except Exception as e:
         logger.error(f"Error retrieving question by ID: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.delete("/documents/{document_id}/questions/{question_id}")
+async def delete_questions(
+    question_id: str, user: User = Depends(auth_service.require_auth)
+):
+    """Delete a question by ID."""
+    try:
+        assert user.id is not None, "User ID cannot be None"
+        question = exam_repository.get_question(question_id)
+        if not question:
+            raise HTTPException(status_code=404, detail=f"Question {question_id} not found")
+        if question.user_id != user.id:
+            raise HTTPException(status_code=403, detail="You are not authorized to delete this question")
+        
+        exam_repository.delete_question(question_id)
+        
+        return {"status": "success", "message": f"Question {question_id} deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting question: {e}")
         raise HTTPException(status_code=500, detail=str(e))
