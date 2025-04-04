@@ -8,10 +8,21 @@ import os
 from config.settings import settings
 from .auth_routes import router as auth_router
 from .essay_routes import router as essay_router
+from .quiz_routes import router as quiz_router
 
-app = FastAPI(title="AI Tutor Document Processor API")
+# Configure app with extended timeout settings for long-running operations (5-10 minutes)
+app = FastAPI(
+    title="AI Tutor Document Processor API",
+    # Allow requests to run for up to 10 minutes (600 seconds)
+    openapi_tags=[
+        {
+            "name": "API",
+            "description": "Endpoints may take 5-10 minutes for processing large documents or complex queries",
+        }
+    ],
+)
 
-# Add CORS middleware
+# Add CORS middleware with extended timeouts
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -22,7 +33,10 @@ app.add_middleware(
 
 # Include auth routes
 app.include_router(auth_router)
+
 app.include_router(essay_router)
+
+app.include_router(quiz_router)
 
 
 @app.get("/health")

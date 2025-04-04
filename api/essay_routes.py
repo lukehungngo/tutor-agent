@@ -6,11 +6,9 @@ from fastapi import (
     Depends,
     APIRouter,
 )
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import os
-import uuid
 from tempfile import NamedTemporaryFile
 from core import (
     DocumentProcessor,
@@ -32,7 +30,6 @@ from langchain.schema import Document
 from pathlib import Path
 from config.settings import settings
 from datetime import datetime, timezone
-import time
 from services import auth_service
 import json
 
@@ -88,7 +85,12 @@ async def upload_document(
     description: Optional[str] = Form(None),
     user: User = Depends(auth_service.require_auth),
 ):
-    """Upload and process a document."""
+    """Upload and process a document.
+
+    Note: Processing large documents may take 5-10 minutes. The system will continue
+    processing even if the client connection times out. You can check document status
+    by querying the document endpoint.
+    """
     try:
         # Save uploaded file temporarily
         with NamedTemporaryFile(
@@ -390,9 +392,10 @@ async def submit_answer(
             answer_text=request.answer,
             correctness_level=evaluation.correctness_level,
             score=evaluation.score,
-            feedback=json.dumps(evaluation.as_dict()),
+            feedback=evaluation.as_dict(),
             improvement_suggestions=evaluation.improvement_suggestions,
             encouragement=evaluation.encouragement,
+            next_steps=evaluation.next_steps,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )

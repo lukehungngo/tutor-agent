@@ -5,6 +5,7 @@ from utils import logger, time_execution
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import SecretStr
 
+
 class GoogleGeminiAPI:
     """Implementation for Google's Gemini API with robust JSON support using LangChain."""
 
@@ -170,12 +171,12 @@ if __name__ == "__main__":
         gemini = GoogleGeminiAPI(
             temperature=0.1,  # Very low temperature for predictable JSON
             api_client=ChatGoogleGenerativeAI(
-				api_key=SecretStr("AIzaSyCpnX_FJ_yYdwcGv9cdccDFUhpivvqNpJA"),
-				model="gemini-2.0-flash",
-				temperature=0.1,
-				max_tokens=65356,
-				timeout=None,
-				max_retries=3,
+                api_key=SecretStr("AIzaSyCpnX_FJ_yYdwcGv9cdccDFUhpivvqNpJA"),
+                model="gemini-2.0-flash",
+                temperature=0.1,
+                max_tokens=65356,
+                timeout=None,
+                max_retries=3,
             ),
             max_tokens=65356,
         )
@@ -183,12 +184,12 @@ if __name__ == "__main__":
         # # Define a simple prompt template
         # template = """
         # Generate questions about the following context:
-        
+
         # CONTEXT: {context}
-        
+
         # Create {number_of_questions} questions for "analyze" level based on Bloom's Taxonomy.
         # Create {number_of_questions} questions for "create" level based on Bloom's Taxonomy.
-        
+
         # Guidelines:
         # - analyze: Test analysis of concepts
         # - create: Test creation of something new or alternative solutions
@@ -249,16 +250,16 @@ if __name__ == "__main__":
             schema={
                 "questions": [
                     {
-						"bloom_level": "remember",
-						"question": "What is the key concept described in the text?",
-						"options": {
-							"A": "This is a option A",
-							"B": "This is a option B",
-							"C": "This is a option C",
-							"D": "This is a option D"
-						},
-						"hint": "Look for definitios or fundamental concepts",
-						"explanation": "This is a sample answer that would accurately explain why this is the correct answer."
+                        "bloom_level": "remember",
+                        "question": "What is the key concept described in the text?",
+                        "options": {
+                            "A": "This is a option A",
+                            "B": "This is a option B",
+                            "C": "This is a option C",
+                            "D": "This is a option D",
+                        },
+                        "hint": "Look for definitios or fundamental concepts",
+                        "explanation": "This is a sample answer that would accurately explain why this is the correct answer.",
                     }
                 ]
             },

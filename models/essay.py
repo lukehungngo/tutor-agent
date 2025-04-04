@@ -5,54 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from utils import logger
 from datetime import datetime
-
-
-class BloomLevel(Enum):
-    REMEMBER = "remember"
-    UNDERSTAND = "understand"
-    APPLY = "apply"
-    ANALYZE = "analyze"
-    EVALUATE = "evaluate"
-    CREATE = "create"
-
-
-class BloomAbstractLevel(Enum):
-    BASIC = "basic"
-    INTERMEDIATE = "intermediate"
-    ADVANCED = "advanced"
-
-
-def get_bloom_level_abstract(bloom_level: str) -> BloomAbstractLevel:
-    if (
-        bloom_level == BloomLevel.REMEMBER.value
-        or bloom_level == BloomLevel.UNDERSTAND.value
-    ):
-        return BloomAbstractLevel.BASIC
-    elif (
-        bloom_level == BloomLevel.APPLY.value or bloom_level == BloomLevel.ANALYZE.value
-    ):
-        return BloomAbstractLevel.INTERMEDIATE
-    elif (
-        bloom_level == BloomLevel.EVALUATE.value
-        or bloom_level == BloomLevel.CREATE.value
-    ):
-        return BloomAbstractLevel.ADVANCED
-    else:
-        raise ValueError(f"Invalid bloom level: {bloom_level}")
-
-
-def get_temperature_from_bloom_level(bloom_level: str) -> float:
-    if (
-        bloom_level == BloomLevel.REMEMBER.value
-        or bloom_level == BloomLevel.UNDERSTAND.value
-    ):
-        return 0.1
-    elif (
-        bloom_level == BloomLevel.APPLY.value or bloom_level == BloomLevel.ANALYZE.value
-    ):
-        return 0.2
-    else:
-        return 0.3
+from models.base import BloomLevel
 
 
 @dataclass
@@ -223,6 +176,7 @@ class EvaluationResult:
                 next_steps="Please try again or contact support if the issue persists.",
             )
 
+
 @dataclass
 class UserAnswer:
     id: Optional[str] = None
@@ -232,13 +186,13 @@ class UserAnswer:
     answer_text: Optional[str] = None
     correctness_level: Optional[CorrectnessLevel] = None
     score: Optional[int] = None
-    feedback: Optional[str] = None
     improvement_suggestions: Optional[List[str]] = None
     encouragement: Optional[str] = None
+    next_steps: Optional[str] = None
     created_at: Optional[datetime] = None
+    feedback: Optional[Dict[str, Any]] = None
     updated_at: Optional[datetime] = None
 
-    
     def as_dict(self) -> Dict[str, Any]:
         assert self.correctness_level is not None, "Correctness level cannot be None"
         return {
@@ -252,13 +206,16 @@ class UserAnswer:
             "feedback": self.feedback,
             "improvement_suggestions": self.improvement_suggestions,
             "encouragement": self.encouragement,
+            "next_steps": self.next_steps,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
 
     @staticmethod
     def from_dict(data: Dict) -> "UserAnswer":
-        assert data.get("correctness_level") is not None, "Correctness level cannot be None"
+        assert (
+            data.get("correctness_level") is not None
+        ), "Correctness level cannot be None"
         return UserAnswer(
             id=data.get("_id") or data.get("id"),
             user_id=data.get("user_id"),
@@ -270,6 +227,7 @@ class UserAnswer:
             feedback=data.get("feedback"),
             improvement_suggestions=data.get("improvement_suggestions"),
             encouragement=data.get("encouragement"),
+            next_steps=data.get("next_steps"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )

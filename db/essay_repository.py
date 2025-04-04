@@ -170,7 +170,7 @@ class EssayRepository:
         """
         # Get answer data as dictionary
         answer_data = user_answer.as_dict()
-        
+
         # Remove created_at from the main update to prevent conflict
         if "created_at" in answer_data:
             del answer_data["created_at"]

@@ -1,8 +1,7 @@
 from .document_processor import DocumentProcessor
-from .essay_generator import EssayGenerator
-from .essay_generator import Gemma3QuestionGenerator
-from .answer_evaluator import AnswerEvaluator
-from .answer_evaluator import Gemma3AnswerEvaluator
+from .essay_generator import EssayGenerator, Gemma3QuestionGenerator
+from .answer_evaluator import AnswerEvaluator, Gemma3AnswerEvaluator
+from .mc_generator import GoogleGeminiMCGenerator
 
 __all__ = [
     "DocumentProcessor",
@@ -10,4 +9,5 @@ __all__ = [
     "Gemma3QuestionGenerator",
     "AnswerEvaluator",
     "Gemma3AnswerEvaluator",
+    "GoogleGeminiMCGenerator",
 ]

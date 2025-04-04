@@ -4,6 +4,7 @@ from models import CorrectnessLevel, EvaluationResult, BloomAbstractLevel
 from core.pre_trained_model.google_gemma import Gemma3Model
 from core.pre_trained_model.google_gemini_api import GoogleGeminiAPI
 from config import settings
+
 EVALUATION_PROMPT = """
 Evaluate the student's answer using both the provided context and your general knowledge of the subject.
 
@@ -185,4 +186,6 @@ class AnswerEvaluator:
         Returns:
             An EvaluationResult object containing the evaluation details
         """
-        return await self.llm.evaluate_answer(context, question, student_answer, temperature=temperature)
+        return await self.llm.evaluate_answer(
+            context, question, student_answer, temperature=temperature
+        )

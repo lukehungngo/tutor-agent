@@ -30,6 +30,11 @@ class Settings:
     JWT_EXPIRATION_TIME_MINUTES = 60 * 24 * 7  # 7 days
     JWT_ALGORITHM = "HS256"
 
+    # Request timeout settings (in seconds)
+    REQUEST_TIMEOUT = 600  # 10 minutes
+    LLM_TIMEOUT = 300  # 5 minutes for LLM operations
+    DOCUMENT_PROCESSING_TIMEOUT = 600  # 10 minutes for document processing
+
     def __init__(self):  # Initialize the gemini client when settings instance is called
         self.GOOGLE_GEMINI_CLIENT: ChatGoogleGenerativeAI = ChatGoogleGenerativeAI(
             api_key=self.GOOGLE_GEMINI_API_KEY,

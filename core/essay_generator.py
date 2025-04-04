@@ -2,7 +2,7 @@ from typing import List, Dict, Optional
 from utils import logger
 from core.pre_trained_model import GoogleGeminiAPI, Gemma3Model
 from typing import Union, Any
-from models.essay import Question, BloomAbstractLevel
+from models import Question, BloomAbstractLevel
 from config import settings
 
 BLOOM_BASIC_LEVEL_PROMPT = """Generate educational assessment questions based ONLY on the following context:
