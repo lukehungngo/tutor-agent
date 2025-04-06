@@ -174,6 +174,12 @@ class EssayRepository:
         # Remove created_at from the main update to prevent conflict
         if "created_at" in answer_data:
             del answer_data["created_at"]
+        if "document_id" in answer_data:
+            answer_data["document_id"] = ObjectId(answer_data["document_id"])
+        if "question_id" in answer_data:
+            answer_data["question_id"] = ObjectId(answer_data["question_id"])
+        if "user_id" in answer_data:
+            answer_data["user_id"] = ObjectId(answer_data["user_id"])
 
         # Define the filter to find existing answer
         filter_query = {
@@ -221,7 +227,7 @@ class EssayRepository:
         return result.modified_count > 0
 
     def get_user_answers_by_document(
-        self, document_id: str, user_id: str
+        self, document_id: str
     ) -> List[UserAnswer]:
         """Get all answers submitted by a user for a specific document.
 
@@ -234,9 +240,9 @@ class EssayRepository:
         """
         try:
             answers = self.db.user_answers.find(
-                {"document_id": ObjectId(document_id), "user_id": ObjectId(user_id)}
+                {"document_id": ObjectId(document_id)}
             )
-
+            
             result = []
             for answer in answers:
                 # Convert all ObjectId fields to strings for serialization

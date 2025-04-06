@@ -496,7 +496,7 @@ def get_questions_by_document(document_id: str, user: User):
     assert user.id is not None, "User ID cannot be None"
     questions = essay_repository.get_questions_by_document(document_id)
     # Enhance questions with user answers if they exist
-    user_answers = essay_repository.get_user_answers_by_document(document_id, user.id)
+    user_answers = essay_repository.get_user_answers_by_document(document_id)
     enhanced_questions = []
     for question in questions:
         question_dict = question.as_dict()
@@ -513,7 +513,6 @@ def get_questions_by_document(document_id: str, user: User):
         if user_answer:
             question_dict["user_answer"] = user_answer.as_dict()
         enhanced_questions.append(question_dict)
-
     return enhanced_questions
 
 

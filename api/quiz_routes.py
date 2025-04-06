@@ -115,7 +115,7 @@ async def get_mc_quiz_by_user_id(exclude_heavy_data: bool = True, user: User = D
 
 
 @router.get("/mc_quiz/{mc_quiz_id}")
-async def get_mc_quiz_by_id(mc_quiz_id: str):
+async def get_mc_quiz_by_id(mc_quiz_id: str, user: User = Depends(auth_service.require_auth)):
     return topic_quiz_repository.get_mc_quiz_by_id(mc_quiz_id)
 
 
@@ -138,6 +138,7 @@ async def submit_answer(request: SubmitAnswerRequest):
                 mc_quiz.correct_answers[question.id] = question.answer
             mc_quiz.chosen_answers[question.id] = request.answers[question.id]
     mc_quiz.updated_at = datetime.now()
+    mc_quiz.is_completed = True
     topic_quiz_repository.update_mc_quiz(mc_quiz)
 
     return {
